@@ -11,7 +11,7 @@ bool show_greeting = false;
 
 // 太阳/月亮参数
 float sunPosX = 500.0f;    // 太阳的X轴中心
-float sunPosY = 700.0f;    // 太阳的Y轴中心 (可动画)
+float sunPosY = 700.0f;    // 太阳的Y轴中心 
 float sunRadius = 50.0f;   // 太阳的半径
 
 // 云朵动画参数
@@ -27,13 +27,95 @@ float buildingPosY = 300.0f; // Y轴基线位置
 float buildingScaleX = 0.3f;
 float buildingScaleY = 0.3f;
 
+const float SHADOW_OFFSET = 7.0f; // 阴影偏移的像素距离
+const float SHADOW_ALPHA_DAY = 0.2f;  // 白天阴影的透明度 
+const float SHADOW_ALPHA_NIGHT = 0.3f; // 夜晚阴影
+/**
+ * @brief 辅助函数：在指定位置绘制一个实心圆
+ * @param cx 圆心x坐标
+ * @param cy 圆心y坐标
+ * @param r  半径
+ */
+void drawCircle(float cx, float cy, float r) {
+    glBegin(GL_TRIANGLE_FAN);
+    glVertex2f(cx, cy);
+    for (int i = 0; i <= 360; i++) {
+        float angle = i * 3.14159f / 180.0f;
+        glVertex2f(cx + r * cos(angle), cy + r * sin(angle));
+    }
+    glEnd();
+}
+
+/**
+ * @brief 辅助函数：绘制一个带有羽化/模糊边缘的实心圆
+ * @param cx         圆心x坐标
+ * @param cy         圆心y坐标
+ * @param radius     圆的最大半径
+ * @param feather    羽化的宽度（像素）
+ * @param r, g, b, a 圆心的颜色和最大不透明度
+ * @param layers     用于模拟的层数，越多越平滑但性能开销越大
+ */
+void drawFeatheredCircle(float cx, float cy, float radius, float feather,
+    float r, float g, float b, float a, int layers = 10)
+{
+    // 循环绘制每一层，从最外层（最大、最透明）开始
+    for (int i = 0; i < layers; ++i)
+    {
+        // 计算当前层的半径
+        // 从 radius 线性减小到 radius - feather
+        float currentRadius = radius - ((float)i / layers) * feather;
+
+        // 计算当前层的透明度
+        // 从 0.0 线性增加到 a
+        float currentAlpha = a * ((float)(i + 1) / layers);
+
+        // 设置颜色并绘制
+        glColor4f(r, g, b, currentAlpha);
+        drawCircle(cx, cy, currentRadius);
+    }
+}
+/**
+ * @brief 使用4个控制点绘制一条三次贝塞尔曲线
+ * @param p0x, p0y 起点 (P0) 的坐标
+ * @param p1x, p1y 起点控制柄 (P1) 的坐标
+ * @param p2x, p2y 终点控制柄 (P2) 的坐标
+ * @param p3x, p3y 终点 (P3) 的坐标
+ * @param segments 曲线的平滑度，段数越多越平滑
+ */
+void drawCubicBezierCurve(float p0x, float p0y, float p1x, float p1y,
+    float p2x, float p2y, float p3x, float p3y,
+    int segments = 50)
+{
+    glBegin(GL_LINE_STRIP);
+    for (int i = 0; i <= segments; ++i)
+    {
+        // 计算参数 t (从 0.0 到 1.0)
+        float t = (float)i / (float)segments;
+        float t_inv = 1.0f - t;
+
+        // 三次贝塞尔曲线 
+        float b0 = t_inv * t_inv * t_inv;
+        float b1 = 3.0f * t * t_inv * t_inv;
+        float b2 = 3.0f * t * t * t_inv;
+        float b3 = t * t * t;
+
+        // 根据混合权重和控制点坐标，计算出曲线上当前 t 位置的 (x, y) 坐标
+        float x = b0 * p0x + b1 * p1x + b2 * p2x + b3 * p3x;
+        float y = b0 * p0y + b1 * p1y + b2 * p2y + b3 * p3y;
+
+        // 将计算出的点添加到线带中
+        glVertex2f(x, y);
+    }
+    glEnd();
+}
+
 /**
  * 建筑的下层
  * 包含蓝色和灰蓝色的两个主要面
  */
 void drawBuilding_LowerLayer()
 {
-    // 1. 绘制左侧的灰蓝色多边形
+    // 绘制左侧多边形
     glColor3f(0.68f, 0.73f, 0.79f);
     glBegin(GL_POLYGON);
     glVertex2f(50.0f, 0.0f);
@@ -42,7 +124,7 @@ void drawBuilding_LowerLayer()
     glVertex2f(450.0f, 0.0f);
     glEnd();
 
-    // 2. 绘制右侧的蓝色多边形
+    // 绘制右侧多边形
     glColor3f(0.25f, 0.46f, 0.62f);
     glBegin(GL_POLYGON);
     glVertex2f(450.0f, 0.0f);
@@ -59,7 +141,6 @@ void drawBuilding_LowerLayer()
 void drawBuilding_UpperLayer_Light()
 {
     // 设置统一颜色
-    // RGB(233, 226, 214) -> (0.91, 0.88, 0.84)
     glColor3f(0.91f, 0.88f, 0.84f);
 
     // 多边形 1
@@ -167,20 +248,14 @@ void drawSlantedStripe(float x1, float y1, float x2, float y2, float height)
     glEnd();
 }
 /**
- * @brief 根据精确的坐标数据绘制建筑的水平纹理条纹
- *
- * 该函数根据预设的y坐标和x范围，绘制一系列有厚度的矩形条纹。
- * 左侧条纹颜色稍浅，右侧稍深，以营造光照和层次感。
+ * @brief 绘制建筑的条纹
  */
 void drawBuilding_Stripes()
 {
     // --- 参数定义 ---
-    const float stripeHeight = 10.0f; 
-    const float leftColorR = 0.39f, leftColorG = 0.35f, leftColorB = 0.33f;
-    const float rightColorR = 0.31f, rightColorG = 0.27f, rightColorB = 0.25f; 
+    const float stripeHeight = 15.0f; 
 
-
-    glColor3f(leftColorR, leftColorG, leftColorB);
+    glColor3f(0.73f, 0.65f, 0.53f);
     drawSlantedStripe(0.0f, 50.0f, 400.0f, 50.0f, stripeHeight);
     drawSlantedStripe(0.0f, 100.0f, 300.0f, 100.0f, stripeHeight);
     drawSlantedStripe(300.0f, 650.0f, 450.0f, 725.0f, stripeHeight); 
@@ -189,7 +264,7 @@ void drawBuilding_Stripes()
     drawSlantedStripe(0.0f, 500.0f, 150.0f, 575.0f, stripeHeight); 
     drawSlantedStripe(0.0f, 450.0f, 100.0f, 500.0f, stripeHeight);
 
-    glColor3f(rightColorR, rightColorG, rightColorB);
+    glColor3f(0.37f, 0.33f, 0.28f);
     drawSlantedStripe(650.0f, 50.0f, 900.0f, 50.0f, stripeHeight);
     drawSlantedStripe(500.0f, 100.0f, 700.0f, 100.0f, stripeHeight);
 }
@@ -201,7 +276,6 @@ void drawXJTLUCenterBuilding()
     glTranslatef(buildingPosX, buildingPosY, 0.0f);
     glScalef(buildingScaleX, buildingScaleY, 1.0f);
 
-    // 按照从后往前的顺序绘制
     drawBuilding_LowerLayer();
     drawBuilding_UpperLayer_Light();
     drawBuilding_UpperLayer_Dark();
@@ -212,25 +286,24 @@ void drawXJTLUCenterBuilding()
 
 // 绘制天空
 void drawSky() {
-    // 根据新坐标系 (0,0) 到 (600,800) 来绘制
     if (is_day) {
-        // 白天：渐变蓝天
+        // 白天
         glBegin(GL_QUADS);
-        glColor3f(0.53f, 0.81f, 0.92f); // 顶部浅蓝色
+        glColor3f(0.26f, 0.61f, 0.97f); // 顶部
         glVertex2f(0.0f, 800.0f);
         glVertex2f(600.0f, 800.0f);
-        glColor3f(0.82f, 0.94f, 0.98f); // 底部更浅的蓝色
+        glColor3f(1.0f, 1.0f, 1.0f);// 底部
         glVertex2f(600.0f, 0.0f);
         glVertex2f(0.0f, 0.0f);
         glEnd();
     }
     else {
-        // 夜晚：深蓝色夜空
+        // 夜晚
         glBegin(GL_QUADS);
-        glColor3f(0.05f, 0.05f, 0.2f); // 顶部深蓝
+        glColor3f(0.05f, 0.05f, 0.2f); // 顶部
         glVertex2f(0.0f, 800.0f);
         glVertex2f(600.0f, 800.0f);
-        glColor3f(0.1f, 0.1f, 0.35f); // 底部更深的蓝
+        glColor3f(0.1f, 0.1f, 0.35f); // 底部
         glVertex2f(600.0f, 0.0f);
         glVertex2f(0.0f, 0.0f);
         glEnd();
@@ -241,7 +314,7 @@ void drawSky() {
 void drawGrass() {
     glBegin(GL_QUADS);
     glColor3f(0.5f, 0.78f, 0.37f);
-    glVertex2f(0.0f, 300.0f); // 高度可以自定义
+    glVertex2f(0.0f, 300.0f); 
     glVertex2f(600.0f, 300.0f);
     glVertex2f(600.0f, 0.0f);
     glVertex2f(0.0f, 0.0f);
@@ -250,13 +323,12 @@ void drawGrass() {
 
 void drawSunOrMoon() {
     if (is_day) {
-        glColor3f(1.0f, 0.84f, 0.0f); // 黄色太阳
+        glColor3f(1.0f, 0.84f, 0.0f); // 太阳
     }
     else {
-        glColor3f(0.9f, 0.9f, 0.85f); // 浅黄色月亮
+        glColor3f(0.9f, 0.9f, 0.85f); // 月亮
     }
 
-    // 使用新的全局变量来绘制
     glBegin(GL_TRIANGLE_FAN);
     glVertex2f(sunPosX, sunPosY); // 圆心
     for (int i = 0; i <= 360; i++) {
@@ -266,23 +338,113 @@ void drawSunOrMoon() {
     }
     glEnd();
 }
+
 /**
- * @brief 辅助函数：在指定位置绘制一个实心圆
- * @param cx 圆心x坐标
- * @param cy 圆心y坐标
- * @param r  半径
+ * @brief 绘制最远处的云层 (第三层)
  */
-void drawCircle(float cx, float cy, float r) {
-    glBegin(GL_TRIANGLE_FAN);
-    glVertex2f(cx, cy);
-    for (int i = 0; i <= 360; i++) {
-        float angle = i * 3.14159f / 180.0f;
-        glVertex2f(cx + r * cos(angle), cy + r * sin(angle));
+void drawCloudLayer_Back()
+{
+
+    float shadow_alpha = is_day ? SHADOW_ALPHA_DAY : SHADOW_ALPHA_NIGHT;
+    float feather_width = 10.0f;
+    drawFeatheredCircle(50.0f, 420.0f + SHADOW_OFFSET, 90.0f, feather_width, 0.0f, 0.0f, 0.0f, shadow_alpha);
+    drawFeatheredCircle(150.0f, 390.0f + SHADOW_OFFSET, 80.0f, feather_width, 0.0f, 0.0f, 0.0f, shadow_alpha);
+    drawFeatheredCircle(250.0f, 340.0f + SHADOW_OFFSET, 70.0f, feather_width, 0.0f, 0.0f, 0.0f, shadow_alpha);
+    drawFeatheredCircle(350.0f, 340.0f + SHADOW_OFFSET, 70.0f, feather_width, 0.0f, 0.0f, 0.0f, shadow_alpha);
+    drawFeatheredCircle(450.0f, 390.0f + SHADOW_OFFSET, 80.0f, feather_width, 0.0f, 0.0f, 0.0f, shadow_alpha);
+    drawFeatheredCircle(550.0f, 420.0f + SHADOW_OFFSET, 90.0f, feather_width, 0.0f, 0.0f, 0.0f, shadow_alpha);
+
+    // 根据白天/夜晚状态设置颜色
+    if (is_day) {
+        glColor3f(0.44f, 0.70f, 0.96f); 
     }
-    glEnd();
+    else {
+        glColor3f(0.15f, 0.35f, 0.55f); 
+    }
+
+    drawCircle(50.0f, 420.0f, 90.0f);
+    drawCircle(150.0f, 390.0f, 80.0f);
+    drawCircle(250.0f, 340.0f, 70.0f);
+    drawCircle(350.0f, 340.0f, 70.0f);
+    drawCircle(450.0f, 390.0f, 80.0f);
+    drawCircle(550.0f, 420.0f, 90.0f);
 }
+
 /**
- * @brief 绘制云朵 (适配 600x800 坐标系)
+ * @brief 绘制中间的云层 (第二层)
+ */
+void drawCloudLayer_Middle()
+{
+    float shadow_alpha = is_day ? SHADOW_ALPHA_DAY : SHADOW_ALPHA_NIGHT;
+    float feather_width = 10.0f;
+
+    drawFeatheredCircle(50.0f, 370.0f + SHADOW_OFFSET, 90.0f, feather_width, 0.0f, 0.0f, 0.0f, shadow_alpha);
+    drawFeatheredCircle(150.0f, 330.0f + SHADOW_OFFSET, 80.0f, feather_width, 0.0f, 0.0f, 0.0f, shadow_alpha);
+    drawFeatheredCircle(250.0f, 300.0f + SHADOW_OFFSET, 70.0f, feather_width, 0.0f, 0.0f, 0.0f, shadow_alpha);
+    drawFeatheredCircle(350.0f, 300.0f + SHADOW_OFFSET, 70.0f, feather_width, 0.0f, 0.0f, 0.0f, shadow_alpha);
+    drawFeatheredCircle(450.0f, 330.0f + SHADOW_OFFSET, 80.0f, feather_width, 0.0f, 0.0f, 0.0f, shadow_alpha);
+    drawFeatheredCircle(550.0f, 370.0f + SHADOW_OFFSET, 90.0f, feather_width, 0.0f, 0.0f, 0.0f, shadow_alpha);
+
+    if (is_day) {
+        glColor3f(0.8f, 0.9f, 1.0f); 
+    }
+    else {
+        glColor3f(0.4f, 0.6f, 0.75f); 
+    }
+
+    drawCircle(50.0f, 370.0f, 90.0f);
+    drawCircle(150.0f, 330.0f, 80.0f);
+    drawCircle(250.0f, 300.0f, 70.0f);
+    drawCircle(350.0f, 300.0f, 70.0f);
+    drawCircle(450.0f, 330.0f, 80.0f);
+    drawCircle(550.0f, 370.0f, 90.0f);
+}
+
+/**
+ * @brief 绘制最前景的云层 (第一层)
+ */
+void drawCloudLayer_Front()
+{
+
+    float shadow_alpha = is_day ? SHADOW_ALPHA_DAY : SHADOW_ALPHA_NIGHT;
+    float feather_width = 10.0f;
+
+    drawFeatheredCircle(50.0f, 320.0f + SHADOW_OFFSET, 90.0f, feather_width, 0.0f, 0.0f, 0.0f, shadow_alpha);
+    drawFeatheredCircle(150.0f, 290.0f + SHADOW_OFFSET, 80.0f, feather_width, 0.0f, 0.0f, 0.0f, shadow_alpha);
+    drawFeatheredCircle(250.0f, 260.0f + SHADOW_OFFSET, 70.0f, feather_width, 0.0f, 0.0f, 0.0f, shadow_alpha);
+    drawFeatheredCircle(350.0f, 260.0f + SHADOW_OFFSET, 70.0f, feather_width, 0.0f, 0.0f, 0.0f, shadow_alpha);
+    drawFeatheredCircle(450.0f, 290.0f + SHADOW_OFFSET, 80.0f, feather_width, 0.0f, 0.0f, 0.0f, shadow_alpha);
+    drawFeatheredCircle(550.0f, 320.0f + SHADOW_OFFSET, 90.0f, feather_width, 0.0f, 0.0f, 0.0f, shadow_alpha);
+
+    if (is_day) {
+        glColor3f(1.0f, 1.0f, 1.0f); // 白天: 纯白色
+    }
+    else {
+        glColor3f(0.85f, 0.9f, 0.95f); // 夜晚: 极浅的蓝白色
+    }
+
+    drawCircle(50.0f, 320.0f, 90.0f);
+    drawCircle(150.0f, 290.0f, 80.0f);
+    drawCircle(250.0f, 260.0f, 70.0f);
+    drawCircle(350.0f, 260.0f, 70.0f);
+    drawCircle(450.0f, 290.0f, 80.0f);
+    drawCircle(550.0f, 320.0f, 90.0f);
+}
+
+
+/**
+ * @brief 绘制三层背景云
+ */
+void drawLayeredBackgroundClouds()
+{
+    drawCloudLayer_Back();
+    drawCloudLayer_Middle();
+    drawCloudLayer_Front();
+}
+
+
+/**
+ * @brief 绘制云朵 
  * @param x_offset 云朵的基准x坐标
  * @param y_offset 云朵的基准y坐标
  * @param scale    云朵的整体缩放
@@ -291,7 +453,6 @@ void drawCloud(float x_offset, float y_offset, float scale) {
     glColor4f(1.0f, 1.0f, 1.0f, 0.9f); // 白色半透明
 
     // 使用 drawCircle 辅助函数，通过组合多个圆形来创建云朵
-    // 所有坐标和半径都是基于 (x_offset, y_offset) 的相对值
     drawCircle(x_offset, y_offset, 25 * scale);
     drawCircle(x_offset + 30 * scale, y_offset + 5 * scale, 30 * scale);
     drawCircle(x_offset - 30 * scale, y_offset + 2 * scale, 20 * scale);
@@ -299,10 +460,77 @@ void drawCloud(float x_offset, float y_offset, float scale) {
     drawCircle(x_offset - 10 * scale, y_offset + 15 * scale, 22 * scale);
 }
 
+/**
+ * @brief 绘制背景层的灌木 (后景)
+ */
+void drawBushes_BackLayer()
 
+{
+    float shadow_alpha = is_day ? SHADOW_ALPHA_DAY : SHADOW_ALPHA_NIGHT;
+    float feather_width = 10.0f;
+
+   
+    //左侧后景灌木
+    drawFeatheredCircle(20.0f, 100.0f + SHADOW_OFFSET, 100.0f, feather_width, 0.0f, 0.0f, 0.0f, shadow_alpha);
+    drawFeatheredCircle(110.0f, 80.0f + SHADOW_OFFSET, 70.0f, feather_width, 0.0f, 0.0f, 0.0f, shadow_alpha);
+    drawFeatheredCircle(190.0f, 30.0f + SHADOW_OFFSET, 55.0f, feather_width, 0.0f, 0.0f, 0.0f, shadow_alpha);
+
+    glColor3f(0.15f, 0.45f, 0.2f);
+    drawCircle(20.0f, 100.0f, 100.0f);
+    drawCircle(110.0f, 80.0f, 70.0f);
+    drawCircle(190.0f, 30.0f, 55.0f);
+    
+    // 右侧后景灌木
+    drawFeatheredCircle(580.0f, 100.0f + SHADOW_OFFSET, 100.0f, feather_width, 0.0f, 0.0f, 0.0f, shadow_alpha);
+    drawFeatheredCircle(490.0f, 80.0f + SHADOW_OFFSET, 70.0f, feather_width, 0.0f, 0.0f, 0.0f, shadow_alpha);
+    drawFeatheredCircle(410.0f, 30.0f + SHADOW_OFFSET, 55.0f, feather_width, 0.0f, 0.0f, 0.0f, shadow_alpha);
+
+    glColor3f(0.15f, 0.45f, 0.2f);
+    drawCircle(580.0f, 100.0f, 100.0f);
+    drawCircle(490.0f, 80.0f, 70.0f);
+    drawCircle(410.0f, 30.0f, 55.0f);
+}
 
 /**
- * @brief 绘制祝福语 (适配 600x800 坐标系)
+ * @brief 绘制前景层的灌木
+ */
+void drawBushes_FrontLayer()
+{
+    float shadow_alpha = is_day ? SHADOW_ALPHA_DAY : SHADOW_ALPHA_NIGHT;
+    float feather_width = 10.0f; 
+
+    // 左侧前景灌木 
+    // 阴影
+    drawFeatheredCircle(20.0f, 70.0f + SHADOW_OFFSET, 90.0f, feather_width, 0.0f, 0.0f, 0.0f, shadow_alpha);
+    drawFeatheredCircle(100.0f, 50.0f + SHADOW_OFFSET, 60.0f, feather_width, 0.0f, 0.0f, 0.0f, shadow_alpha);
+    drawFeatheredCircle(160.0f, 20.0f + SHADOW_OFFSET, 40.0f, feather_width, 0.0f, 0.0f, 0.0f, shadow_alpha);
+
+    glColor3f(0.3f, 0.65f, 0.35f); 
+    drawCircle(20.0f, 70.0f, 90.0f);
+    drawCircle(100.0f, 50.0f, 60.0f);
+    drawCircle(160.0f, 20.0f, 40.0f);
+    // 右侧前景灌木 
+    // 阴影
+    drawFeatheredCircle(580.0f, 70.0f + SHADOW_OFFSET, 90.0f, feather_width, 0.0f, 0.0f, 0.0f, shadow_alpha);
+    drawFeatheredCircle(500.0f, 50.0f + SHADOW_OFFSET, 60.0f, feather_width, 0.0f, 0.0f, 0.0f, shadow_alpha);
+    drawFeatheredCircle(440.0f, 20.0f + SHADOW_OFFSET, 40.0f, feather_width, 0.0f, 0.0f, 0.0f, shadow_alpha);
+
+    glColor3f(0.3f, 0.65f, 0.35f);
+    drawCircle(580.0f, 70.0f, 90.0f);
+    drawCircle(500.0f, 50.0f, 60.0f);
+    drawCircle(440.0f, 20.0f, 40.0f);
+}
+
+/**
+ * @brief 主函数：按正确顺序绘制所有灌木
+ */
+void drawAllBushes()
+{
+    drawBushes_BackLayer();
+    drawBushes_FrontLayer();
+}
+/**
+ * @brief 绘制祝福语
  */
 void drawGreetingText() {
     if (show_greeting) {
@@ -318,9 +546,7 @@ void drawGreetingText() {
     }
 }
 
-// --- 主回调函数 ---
 
-// 核心绘制函数
 void display() {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glLoadIdentity();
@@ -328,20 +554,21 @@ void display() {
     // 绘制背景
     drawSky();
     drawSunOrMoon();
+    drawLayeredBackgroundClouds();
     drawCloud(cloud1_posX, 650.0f, 1.0f);
     drawCloud(cloud2_posX, 550.0f, 0.8f);
 
     // 绘制前景
     drawGrass();
-
-
     glPushMatrix();
     drawXJTLUCenterBuilding();
+    drawAllBushes();
     glPopMatrix();
 
     drawGreetingText();
 
     glutSwapBuffers();
+
 }
 
 
@@ -349,7 +576,7 @@ void display() {
  * @brief 动画更新函数
  */
 void update(int value) {
-    // 云朵动画：在窗口 (0, 600) 范围内来回移动
+    // 云朵动画
     cloud1_posX += 0.2f; // 调整速度
     if (cloud1_posX > 700.0f) { // 飘出右边界
         cloud1_posX = -100.0f; // 从左边界外重生
@@ -360,7 +587,7 @@ void update(int value) {
         cloud2_posX = -100.0f; // 从左边界外重生
     }
 
-    // 祝福语淡入淡出动画 (逻辑不变)
+    // 祝福语
     if (show_greeting && greeting_alpha < 1.0f) {
         greeting_alpha += 0.02f;
     }
@@ -390,15 +617,15 @@ void mouse(int button, int state, int x, int y) {
 }
 void reshape(int w, int h)
 {
-    // 1. 设置视口
+    // 设置视口
     glViewport(0, 0, 600, 800);
 
-    // 2. 设置投影矩阵
+    // 设置投影矩阵
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
-    gluOrtho2D(0.0, 600.0, 0.0, 800.0); // 坐标系左下角(0,0), 右上角(600,800)
+    gluOrtho2D(0.0, 600.0, 0.0, 800.0); 
 
-    // 3. 强制窗口尺寸恢复到 600x800
+    // 强制窗口尺寸恢复
     if (w != 600 || h != 800) {
         glutReshapeWindow(600, 800);
     }
@@ -406,7 +633,7 @@ void reshape(int w, int h)
     glMatrixMode(GL_MODELVIEW);
 }
 
-// --- 主函数 ---
+
 int main(int argc, char** argv) {
     glutInit(&argc, argv);
     glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH);
