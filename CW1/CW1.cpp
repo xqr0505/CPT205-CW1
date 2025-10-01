@@ -8,7 +8,7 @@ int windowHeight = 800;
 
 bool is_day = true;
 bool show_greeting = false;
-
+bool isCoverVisible = true;
 // 太阳/月亮参数
 float sunPosX = 500.0f;    // 太阳的X轴中心
 float sunPosY = 700.0f;    // 太阳的Y轴中心 
@@ -546,31 +546,123 @@ void drawGreetingText() {
     }
 }
 
+/**
+ * @brief 绘制用于遮挡建筑的白色多边形 (封面专用)
+ */
+void drawCoverPolygons()
+{
+    // 设置为纯白色
+    glColor3f(1.0f, 1.0f, 1.0f);
 
-void display() {
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    glLoadIdentity();
+    // 根据您提供的坐标绘制三个多边形
+    // 多边形 1
+    glBegin(GL_POLYGON);
+    glVertex2f(0.0f, 450.0f);
+    glVertex2f(350.0f, 625.0f);
+    glVertex2f(350.0f, 450.0f);
+    glVertex2f(0.0f, 100.0f);
+    glEnd();
 
-    // 绘制背景
-    drawSky();
-    drawSunOrMoon();
-    drawLayeredBackgroundClouds();
-    drawCloud(cloud1_posX, 650.0f, 1.0f);
-    drawCloud(cloud2_posX, 550.0f, 0.8f);
+    // 多边形 2
+    glBegin(GL_POLYGON);
+    glVertex2f(150.0f, 100.0f);
+    glVertex2f(450.0f, 400.0f);
+    glVertex2f(450.0f, 100.0f);
+    glEnd();
 
-    // 绘制前景
-    drawGrass();
-    glPushMatrix();
-    drawXJTLUCenterBuilding();
-    drawAllBushes();
-    glPopMatrix();
-
-    drawGreetingText();
-
-    glutSwapBuffers();
-
+    // 多边形 3
+    glBegin(GL_POLYGON);
+    glVertex2f(550.0f, 620.0f);
+    glVertex2f(800.0f, 490.0f);
+    glVertex2f(800.0f, 100.0f);
+    glVertex2f(550.0f, 100.0f);
+    glEnd();
 }
 
+/**
+ * @brief 主函数：绘制完整的贺卡封面
+ */
+void drawGreetingCardCover()
+{
+    // 1. 设置纯白色背景
+    glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    // 2. 绘制居中的建筑
+    // 注意：这里的变换与内部场景的建筑变换是独立的
+    // 但我们使用相同的全局变量，以确保位置和大小一致
+    glPushMatrix();
+    glTranslatef(buildingPosX, buildingPosY, 0.0f);
+    glScalef(buildingScaleX, buildingScaleY, 1.0f);
+
+    // 先绘制建筑本身
+    drawBuilding_LowerLayer();
+    drawBuilding_UpperLayer_Light();
+    drawBuilding_UpperLayer_Dark();
+    drawBuilding_Stripes();
+
+    // 然后在建筑上层绘制用于遮挡的白色多边形
+    drawCoverPolygons();
+
+    glPopMatrix();
+}
+//void display() {
+//    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+//    glLoadIdentity();
+//
+//    // 绘制背景
+//    drawSky();
+//    drawSunOrMoon();
+//    drawLayeredBackgroundClouds();
+//    drawCloud(cloud1_posX, 650.0f, 1.0f);
+//    drawCloud(cloud2_posX, 550.0f, 0.8f);
+//
+//    // 绘制前景
+//    drawGrass();
+//    glPushMatrix();
+//    drawXJTLUCenterBuilding();
+//    drawAllBushes();
+//    glPopMatrix();
+//
+//    drawGreetingText();
+//
+//    glutSwapBuffers();
+//
+//}
+void display() {
+    // 根据状态执行不同的绘制逻辑
+    if (isCoverVisible)
+    {
+        // --- 状态一：绘制封面 ---
+        drawGreetingCardCover();
+    }
+    else
+    {
+        // --- 状态二：绘制贺卡内部场景 ---
+        // (这里的代码就是您之前 display 函数的全部内容)
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        glLoadIdentity();
+
+        drawSky();
+        drawSunOrMoon();
+        drawLayeredBackgroundClouds();
+        drawCloud(cloud1_posX, 650.0f, 1.0f);
+        drawCloud(cloud2_posX, 550.0f, 0.8f);
+        drawGrass();
+
+        // 注意：这里的PushMatrix/PopMatrix是为了隔离建筑和灌木的变换
+        // 但您的代码中将它们放在了一起，我会遵循您的版本
+        glPushMatrix();
+        drawXJTLUCenterBuilding();
+        drawAllBushes();
+        glPopMatrix();
+
+        drawGreetingText();
+    }
+
+    // 无论哪个状态，最后都要交换缓冲区以显示画面
+    glutSwapBuffers();
+}
 
 /**
  * @brief 动画更新函数
@@ -601,12 +693,16 @@ void update(int value) {
 
 void keyboard(unsigned char key, int x, int y) {
     switch (key) {
+    case 'o': case 'O': 
+        isCoverVisible = !isCoverVisible;
+        break;
     case 'n': case 'N':
         is_day = !is_day;
         break;
     case 'q': case 'Q': case 27:
         exit(0);
         break;
+
     }
 }
 
@@ -652,6 +748,7 @@ int main(int argc, char** argv) {
     glutTimerFunc(16, update, 0);
 
     std::cout << "--- 操作指南 ---" << std::endl;
+    std::cout << "按 'o' 键: 打开/合上贺卡" << std::endl; // <-- 新增
     std::cout << "按 'n' 键: 切换白天和夜晚模式" << std::endl;
     std::cout << "点击鼠标左键: 显示/隐藏祝福语" << std::endl;
     std::cout << "按 'q' 或 'ESC' 键: 退出程序" << std::endl;
