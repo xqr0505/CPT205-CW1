@@ -22,7 +22,7 @@ float cloud2_posX = 450.0f;
 float greeting_alpha = 0.0f; // 祝福语透明度
 
 //cb
-float buildingPosX = 150.0f; // X轴中心位置
+float buildingPosX = 165.0f; // X轴中心位置
 float buildingPosY = 300.0f; // Y轴基线位置
 float buildingScaleX = 0.3f;
 float buildingScaleY = 0.3f;
@@ -522,7 +522,7 @@ void drawBushes_FrontLayer()
 }
 
 /**
- * @brief 主函数：按正确顺序绘制所有灌木
+ * @brief 顺序绘制所有灌木
  */
 void drawAllBushes()
 {
@@ -536,7 +536,6 @@ void drawGreetingText() {
     if (show_greeting) {
         glColor4f(1.0f, 0.84f, 0.0f, greeting_alpha);
 
-        // 将文本放置在窗口左上角 (50, 750) 的位置
         glRasterPos2f(50.0f, 750.0f);
 
         const char* text = "Happy 20th Anniversary, XJTLU!";
@@ -547,14 +546,12 @@ void drawGreetingText() {
 }
 
 /**
- * @brief 绘制用于遮挡建筑的白色多边形 (封面专用)
+ * @brief 绘制用于遮挡建筑的白色多边形
  */
 void drawCoverPolygons()
 {
-    // 设置为纯白色
-    glColor3f(1.0f, 1.0f, 1.0f);
+    glColor3f(0.67f, 0.61f, 0.70f);
 
-    // 根据您提供的坐标绘制三个多边形
     // 多边形 1
     glBegin(GL_POLYGON);
     glVertex2f(0.0f, 450.0f);
@@ -570,6 +567,9 @@ void drawCoverPolygons()
     glVertex2f(450.0f, 100.0f);
     glEnd();
 
+
+    glColor3f(0.33f, 0.23f, 0.40f);
+
     // 多边形 3
     glBegin(GL_POLYGON);
     glVertex2f(550.0f, 620.0f);
@@ -580,66 +580,66 @@ void drawCoverPolygons()
 }
 
 /**
- * @brief 主函数：绘制完整的贺卡封面
+ * @brief 绘制贺卡封面
  */
 void drawGreetingCardCover()
 {
-    // 1. 设置纯白色背景
-    glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
+    // 清理背景
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    // 2. 绘制居中的建筑
-    // 注意：这里的变换与内部场景的建筑变换是独立的
-    // 但我们使用相同的全局变量，以确保位置和大小一致
+    // 左半部分背景
+    glColor3f(0.67f, 0.61f, 0.70f);
+    glBegin(GL_QUADS);
+    glVertex2f(0.0f, 0.0f);
+    glVertex2f(300.0f, 0.0f);
+    glVertex2f(300.0f, 800.0f);
+    glVertex2f(0.0f, 800.0f);
+    glEnd();
+
+    // 右半部分背景
+    glColor3f(0.33f, 0.23f, 0.40f);
+    glBegin(GL_QUADS);
+    glVertex2f(300.0f, 0.0f);
+    glVertex2f(600.0f, 0.0f);
+    glVertex2f(600.0f, 800.0f);
+    glVertex2f(300.0f, 800.0f);
+    glEnd();
+
+    // CB
     glPushMatrix();
     glTranslatef(buildingPosX, buildingPosY, 0.0f);
     glScalef(buildingScaleX, buildingScaleY, 1.0f);
-
-    // 先绘制建筑本身
     drawBuilding_LowerLayer();
     drawBuilding_UpperLayer_Light();
     drawBuilding_UpperLayer_Dark();
     drawBuilding_Stripes();
 
-    // 然后在建筑上层绘制用于遮挡的白色多边形
+    // MASK
     drawCoverPolygons();
 
     glPopMatrix();
+
+    // 标题
+    glColor3f(1.0f, 1.0f, 1.0f);
+    float textX = 145.0f; 
+    float textY = buildingPosY - 40.0f; 
+    glRasterPos2f(textX, textY);
+    const char* text = "XJTLU 20TH ANNIVERSARY";
+    for (const char* c = text; *c != '\0'; c++) {
+        glutBitmapCharacter(GLUT_BITMAP_TIMES_ROMAN_24, *c);
+    }
 }
-//void display() {
-//    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-//    glLoadIdentity();
-//
-//    // 绘制背景
-//    drawSky();
-//    drawSunOrMoon();
-//    drawLayeredBackgroundClouds();
-//    drawCloud(cloud1_posX, 650.0f, 1.0f);
-//    drawCloud(cloud2_posX, 550.0f, 0.8f);
-//
-//    // 绘制前景
-//    drawGrass();
-//    glPushMatrix();
-//    drawXJTLUCenterBuilding();
-//    drawAllBushes();
-//    glPopMatrix();
-//
-//    drawGreetingText();
-//
-//    glutSwapBuffers();
-//
-//}
+
 void display() {
     // 根据状态执行不同的绘制逻辑
     if (isCoverVisible)
     {
-        // --- 状态一：绘制封面 ---
+        // 绘制封面
         drawGreetingCardCover();
     }
     else
     {
-        // --- 状态二：绘制贺卡内部场景 ---
-        // (这里的代码就是您之前 display 函数的全部内容)
+        // 绘制贺卡内部场景 
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         glLoadIdentity();
 
@@ -650,17 +650,14 @@ void display() {
         drawCloud(cloud2_posX, 550.0f, 0.8f);
         drawGrass();
 
-        // 注意：这里的PushMatrix/PopMatrix是为了隔离建筑和灌木的变换
-        // 但您的代码中将它们放在了一起，我会遵循您的版本
         glPushMatrix();
         drawXJTLUCenterBuilding();
-        drawAllBushes();
         glPopMatrix();
+        drawAllBushes();
 
         drawGreetingText();
     }
 
-    // 无论哪个状态，最后都要交换缓冲区以显示画面
     glutSwapBuffers();
 }
 
@@ -736,7 +733,7 @@ int main(int argc, char** argv) {
     glutInitWindowSize(windowWidth, windowHeight);
     glutInitWindowPosition(100, 100);
 
-    glutCreateWindow("XJTLU 20th Anniversary Greeting Card - Detailed Building");
+    glutCreateWindow("XJTLU 20th Anniversary Greeting Card");
 
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -748,7 +745,7 @@ int main(int argc, char** argv) {
     glutTimerFunc(16, update, 0);
 
     std::cout << "--- 操作指南 ---" << std::endl;
-    std::cout << "按 'o' 键: 打开/合上贺卡" << std::endl; // <-- 新增
+    std::cout << "按 'o' 键: 打开/合上贺卡" << std::endl; 
     std::cout << "按 'n' 键: 切换白天和夜晚模式" << std::endl;
     std::cout << "点击鼠标左键: 显示/隐藏祝福语" << std::endl;
     std::cout << "按 'q' 或 'ESC' 键: 退出程序" << std::endl;
