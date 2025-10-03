@@ -6,9 +6,16 @@
 int windowWidth = 600;
 int windowHeight = 800;
 
+// 状态
 bool is_day = true;
 bool show_greeting = false;
 bool isCoverVisible = true;
+
+// 封面旋转动画相关变量
+float ringRotationAngle = 0.0f;  // 圆环旋转角度
+bool isAnimating = false;         // 是否正在播放动画
+bool isOpening = false;           // true=打开封面, false=关闭封面
+
 // 太阳/月亮参数
 float sunPosX = 500.0f;    // 太阳的X轴中心
 float sunPosY = 700.0f;    // 太阳的Y轴中心 
@@ -545,6 +552,8 @@ void drawGreetingText() {
     }
 }
 
+
+
 /**
  * @brief 绘制用于遮挡建筑的白色多边形
  */
@@ -577,6 +586,54 @@ void drawCoverPolygons()
     glVertex2f(800.0f, 100.0f);
     glVertex2f(550.0f, 100.0f);
     glEnd();
+}
+
+/**
+ * @brief 在贺卡封面上绘制一个双色圆环
+ */
+void drawCoverRing()
+{
+    // --- 圆环参数定义 ---
+    const float centerX = 300.0f;
+    const float centerY = 400.0f;
+    const float outerRadius = 220.0f;
+    const float ringWidth = 25.0f;
+    const float innerRadius = outerRadius - ringWidth;
+    const int numSegments = 100;
+
+    // 应用旋转变换
+    glPushMatrix();
+    glTranslatef(centerX, centerY, 0.0f);
+    glRotatef(ringRotationAngle, 0.0f, 0.0f, 1.0f);
+    glTranslatef(-centerX, -centerY, 0.0f);
+
+    // 绘制右半部分的圆环
+    glColor3f(0.67f, 0.61f, 0.70f);
+    glBegin(GL_TRIANGLE_STRIP);
+    // 角度从 -90度 (270度) 变化到 90度
+    for (int i = -90; i <= 90; ++i)
+    {
+        float angle = i * 3.14159f / 180.0f;
+        // 计算并添加外环顶点和内环顶点
+        glVertex2f(centerX + outerRadius * cos(angle), centerY + outerRadius * sin(angle));
+        glVertex2f(centerX + innerRadius * cos(angle), centerY + innerRadius * sin(angle));
+    }
+    glEnd();
+
+    // 绘制左半部分的圆环
+    glColor3f(0.33f, 0.23f, 0.40f);
+    glBegin(GL_TRIANGLE_STRIP);
+    // 角度从 90度 变化到 270度
+    for (int i = 90; i <= 270; ++i)
+    {
+        float angle = i * 3.14159f / 180.0f;
+        //计算并添加外环顶点和内环顶点
+        glVertex2f(centerX + outerRadius * cos(angle), centerY + outerRadius * sin(angle));
+        glVertex2f(centerX + innerRadius * cos(angle), centerY + innerRadius * sin(angle));
+    }
+    glEnd();
+
+    glPopMatrix();
 }
 
 /**
@@ -616,25 +673,27 @@ void drawGreetingCardCover()
 
     // MASK
     drawCoverPolygons();
-
     glPopMatrix();
+    // ring
+    drawCoverRing();
 
     // 标题
     glColor3f(1.0f, 1.0f, 1.0f);
-    float textX = 145.0f; 
-    float textY = buildingPosY - 40.0f; 
+    float textX = 180.0f; 
+    float textY = buildingPosY - 30.0f; 
     glRasterPos2f(textX, textY);
     const char* text = "XJTLU 20TH ANNIVERSARY";
     for (const char* c = text; *c != '\0'; c++) {
-        glutBitmapCharacter(GLUT_BITMAP_TIMES_ROMAN_24, *c);
+        glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, *c);
     }
+
+
 }
 
 void display() {
-    // 根据状态执行不同的绘制逻辑
     if (isCoverVisible)
     {
-        // 绘制封面
+        // 封面
         drawGreetingCardCover();
     }
     else
@@ -665,6 +724,24 @@ void display() {
  * @brief 动画更新函数
  */
 void update(int value) {
+
+    // 圆环旋转动画
+    if (isAnimating) {
+        const float rotationSpeed = 3.0f; // 旋转速度（度/帧）
+
+        ringRotationAngle += rotationSpeed;
+
+        // 旋转完成180度
+        if (ringRotationAngle >= 180.0f) {
+            ringRotationAngle = 0.0f;
+            isAnimating = false;
+
+            // 旋转完成后切换封面状态
+            if (isOpening) {
+                isCoverVisible = false;
+            }
+        }
+    }
     // 云朵动画
     cloud1_posX += 0.2f; // 调整速度
     if (cloud1_posX > 700.0f) { // 飘出右边界
@@ -690,8 +767,22 @@ void update(int value) {
 
 void keyboard(unsigned char key, int x, int y) {
     switch (key) {
-    case 'o': case 'O': 
-        isCoverVisible = !isCoverVisible;
+    case 'o': case 'O':
+        if (!isAnimating) {
+            isAnimating = true;
+            ringRotationAngle = 0.0f;
+
+            if (isCoverVisible) {
+                // 打开封面
+                isOpening = true;
+            }
+            else {
+                // 关闭封面
+                isCoverVisible = true;
+                isAnimating = false;
+                ringRotationAngle = 0.0f;
+            }
+        }
         break;
     case 'n': case 'N':
         is_day = !is_day;
