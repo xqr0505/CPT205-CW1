@@ -38,6 +38,24 @@ const float SHADOW_OFFSET = 7.0f;
 const float SHADOW_ALPHA_DAY = 0.2f;
 const float SHADOW_ALPHA_NIGHT = 0.3f;
 
+// Zoom and Pan Variables
+const float MIN_LEFT = 0.0f;
+const float MIN_RIGHT = 600.0f;
+const float MIN_BOTTOM = 0.0f;
+const float MIN_TOP = 800.0f;
+
+float viewLeft = MIN_LEFT;
+float viewRight = MIN_RIGHT;
+float viewBottom = MIN_BOTTOM;
+float viewTop = MIN_TOP;
+
+float zoomFactor = 1.0f;
+const float ZOOM_STEP = 0.1f;
+const float MIN_ZOOM = 1.0f;
+const float MAX_ZOOM = 3.0f;
+
+const float PAN_STEP = 20.0f;
+
 /* Draw a filled circle at (cx,cy) with radius r */
 void drawCircle(float cx, float cy, float r) {
     glBegin(GL_TRIANGLE_FAN);
@@ -565,6 +583,25 @@ void drawGreetingCardCover()
     }
 }
 
+/* Update the projection based on current view bounds */
+void updateProjection()
+{
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+    gluOrtho2D(viewLeft, viewRight, viewBottom, viewTop);
+    glMatrixMode(GL_MODELVIEW);
+}
+
+void resetViewToDefault()
+{
+    zoomFactor = MIN_ZOOM;
+    viewLeft = MIN_LEFT;
+    viewRight = MIN_RIGHT;
+    viewBottom = MIN_BOTTOM;
+    viewTop = MIN_TOP;
+    updateProjection();
+}
+
 void display() {
     if (isCoverVisible)
     {
@@ -630,6 +667,67 @@ void update(int value) {
     glutTimerFunc(16, update, 0);
 }
 
+void specialKeys(int key, int x, int y) {
+    // Only allow panning when not showing cover
+    if (isCoverVisible) {
+        return;
+    }
+
+    float currentWidth = viewRight - viewLeft;
+    float currentHeight = viewTop - viewBottom;
+    
+    bool viewChanged = false;
+
+    switch (key) {
+    case GLUT_KEY_UP: {
+        // move top
+        float newTop = viewTop + PAN_STEP;
+        float newBottom = viewBottom + PAN_STEP;
+        if (newTop <= MIN_TOP) {
+            viewTop = newTop;
+            viewBottom = newBottom;
+            viewChanged = true;
+        }
+        break;
+    }
+    case GLUT_KEY_DOWN: {
+        // move down
+        float newBottom = viewBottom - PAN_STEP;
+        if (newBottom >= MIN_BOTTOM) {
+            viewBottom = newBottom;
+            viewTop = viewBottom + currentHeight;
+            viewChanged = true;
+        }
+        break;
+    }
+    case GLUT_KEY_LEFT: {
+        // move left
+        float newLeft = viewLeft - PAN_STEP;
+        if (newLeft >= MIN_LEFT) {
+            viewLeft = newLeft;
+            viewRight = viewLeft + currentWidth;
+            viewChanged = true;
+        }
+        break;
+    }
+    case GLUT_KEY_RIGHT: {
+        // move right
+        float newRight = viewRight + PAN_STEP;
+        if (newRight <= MIN_RIGHT) {
+            viewRight = newRight;
+            viewLeft = viewRight - currentWidth;
+            viewChanged = true;
+        }
+        break;
+    }
+    }
+
+    if (viewChanged) {
+        updateProjection();
+        glutPostRedisplay();
+    }
+}
+
 void keyboard(unsigned char key, int x, int y) {
     switch (key) {
     case 'o': case 'O':
@@ -641,6 +739,7 @@ void keyboard(unsigned char key, int x, int y) {
                 isOpening = true;
             }
             else {
+                resetViewToDefault();
                 isCoverVisible = true;
                 isAnimating = false;
                 ringRotationAngle = 0.0f;
@@ -650,6 +749,96 @@ void keyboard(unsigned char key, int x, int y) {
     case 'n': case 'N':
         is_day = !is_day;
         break;
+    case '+': case '=': {
+        if (isCoverVisible) break;
+        
+        if (zoomFactor < MAX_ZOOM) {
+            zoomFactor += ZOOM_STEP;
+            
+            float centerX = (viewLeft + viewRight) / 2.0f;
+            float centerY = (viewBottom + viewTop) / 2.0f;
+            
+            float newWidth = (MIN_RIGHT - MIN_LEFT) / zoomFactor;
+            float newHeight = (MIN_TOP - MIN_BOTTOM) / zoomFactor;
+            
+            viewLeft = centerX - newWidth / 2.0f;
+            viewRight = centerX + newWidth / 2.0f;
+            viewBottom = centerY - newHeight / 2.0f;
+            viewTop = centerY + newHeight / 2.0f;
+            
+            if (viewLeft < MIN_LEFT) {
+                float offset = MIN_LEFT - viewLeft;
+                viewLeft += offset;
+                viewRight += offset;
+            }
+            if (viewRight > MIN_RIGHT) {
+                float offset = viewRight - MIN_RIGHT;
+                viewLeft -= offset;
+                viewRight -= offset;
+            }
+            if (viewBottom < MIN_BOTTOM) {
+                float offset = MIN_BOTTOM - viewBottom;
+                viewBottom += offset;
+                viewTop += offset;
+            }
+            if (viewTop > MIN_TOP) {
+                float offset = viewTop - MIN_TOP;
+                viewBottom -= offset;
+                viewTop -= offset;
+            }
+            
+            updateProjection();
+            glutPostRedisplay();
+        }
+        break;
+    }
+    case '-': case '_': {
+        if (isCoverVisible) break;
+        
+        if (zoomFactor > MIN_ZOOM) {
+            zoomFactor -= ZOOM_STEP;
+            
+            if (zoomFactor < MIN_ZOOM) {
+                zoomFactor = MIN_ZOOM;
+            }
+            
+            float centerX = (viewLeft + viewRight) / 2.0f;
+            float centerY = (viewBottom + viewTop) / 2.0f;
+            
+            float newWidth = (MIN_RIGHT - MIN_LEFT) / zoomFactor;
+            float newHeight = (MIN_TOP - MIN_BOTTOM) / zoomFactor;
+            
+            viewLeft = centerX - newWidth / 2.0f;
+            viewRight = centerX + newWidth / 2.0f;
+            viewBottom = centerY - newHeight / 2.0f;
+            viewTop = centerY + newHeight / 2.0f;
+            
+            if (viewLeft < MIN_LEFT) {
+                float offset = MIN_LEFT - viewLeft;
+                viewLeft += offset;
+                viewRight += offset;
+            }
+            if (viewRight > MIN_RIGHT) {
+                float offset = viewRight - MIN_RIGHT;
+                viewLeft -= offset;
+                viewRight -= offset;
+            }
+            if (viewBottom < MIN_BOTTOM) {
+                float offset = MIN_BOTTOM - viewBottom;
+                viewBottom += offset;
+                viewTop += offset;
+            }
+            if (viewTop > MIN_TOP) {
+                float offset = viewTop - MIN_TOP;
+                viewBottom -= offset;
+                viewTop -= offset;
+            }
+            
+            updateProjection();
+            glutPostRedisplay();
+        }
+        break;
+    }
     case 'q': case 'Q': case 27:
         exit(0);
         break;
@@ -668,7 +857,7 @@ void reshape(int w, int h)
 
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
-    gluOrtho2D(0.0, 600.0, 0.0, 800.0);
+    gluOrtho2D(viewLeft, viewRight, viewBottom, viewTop);
 
     if (w != 600 || h != 800) {
         glutReshapeWindow(600, 800);
@@ -691,12 +880,16 @@ int main(int argc, char** argv) {
     glutDisplayFunc(display);
     glutReshapeFunc(reshape);
     glutKeyboardFunc(keyboard);
+    glutSpecialFunc(specialKeys);
     glutMouseFunc(mouse);
     glutTimerFunc(16, update, 0);
 
     std::cout << "--- Controls ---" << std::endl;
     std::cout << "Press 'o': Open/close the card" << std::endl;
     std::cout << "Press 'n': Toggle day/night" << std::endl;
+    std::cout << "Press '+': Zoom in" << std::endl;
+    std::cout << "Press '-': Zoom out" << std::endl;
+    std::cout << "Arrow keys: Pan view (when zoomed)" << std::endl;
     std::cout << "Left click: Show/hide greeting" << std::endl;
     std::cout << "Press 'q' or 'ESC': Quit" << std::endl;
 
