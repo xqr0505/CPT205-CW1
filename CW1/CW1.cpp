@@ -80,29 +80,6 @@ void drawFeatheredCircle(float cx, float cy, float radius, float feather,
     }
 }
 
-/* Draw a cubic Bezier curve using 4 control points */
-void drawCubicBezierCurve(float p0x, float p0y, float p1x, float p1y,
-    float p2x, float p2y, float p3x, float p3y,
-    int segments = 50)
-{
-    glBegin(GL_LINE_STRIP);
-    for (int i = 0; i <= segments; ++i)
-    {
-        float t = (float)i / (float)segments;
-        float t_inv = 1.0f - t;
-
-        float b0 = t_inv * t_inv * t_inv;
-        float b1 = 3.0f * t * t_inv * t_inv;
-        float b2 = 3.0f * t * t * t_inv;
-        float b3 = t * t * t;
-
-        float x = b0 * p0x + b1 * p1x + b2 * p2x + b3 * p3x;
-        float y = b0 * p0y + b1 * p1y + b2 * p2y + b3 * p3y;
-
-        glVertex2f(x, y);
-    }
-    glEnd();
-}
 
 /* Building lower layer (two main faces) */
 void drawBuilding_LowerLayer()
@@ -473,6 +450,25 @@ void drawGreetingText() {
     }
 }
 
+/* Draw a quadratic Bezier curve that passes through three points */
+void drawQuadraticBezier(float p0x, float p0y, float p1x, float p1y, float p2x, float p2y)
+{
+    // Calculate the control point P1 for a Bezier curve P0-P1-P2
+    // such that the curve passes through the given middle point at t=0.5.
+    float ctrl_x = 2.0f * p1x - 0.5f * p0x - 0.5f * p2x;
+    float ctrl_y = 2.0f * p1y - 0.5f * p0y - 0.5f * p2y;
+
+    glBegin(GL_LINE_STRIP);
+    for (int i = 0; i <= 20; ++i) {
+        float t = (float)i / 20.0f;
+        float u = 1.0f - t;
+        float x = u * u * p0x + 2.0f * u * t * ctrl_x + t * t * p2x;
+        float y = u * u * p0y + 2.0f * u * t * ctrl_y + t * t * p2y;
+        glVertex2f(x, y);
+    }
+    glEnd();
+}
+
 /* Simple cover polygons that mask the building */
 void drawCoverPolygons()
 {
@@ -499,6 +495,66 @@ void drawCoverPolygons()
     glVertex2f(800.0f, 100.0f);
     glVertex2f(550.0f, 100.0f);
     glEnd();
+
+    // Ð¡°×Í¤
+    const float xs[] = {585.0f, 615.0f, 645.0f, 675.0f, 705.0f, 735.0f, 765.0f};
+    const int count = sizeof(xs) / sizeof(xs[0]);
+
+    glColor3f(1.0f, 1.0f, 1.0f);
+    glLineWidth(1.0f);
+
+    glBegin(GL_LINES);
+    for (int i = 0; i < count; ++i) {
+        float x = xs[i];
+        glVertex2f(x, 100.0f);
+        glVertex2f(x, 250.0f);
+
+        glVertex2f(x + 10.0f, 100.0f);
+        glVertex2f(x + 10.0f, 250.0f);
+    }
+    glEnd();
+
+    glLineWidth(1.0f);
+    glColor3f(1.0f, 1.0f, 1.0f);
+    glBegin(GL_LINES);
+        // Horizontal lines
+        glVertex2f(560.0f, 250.0f); glVertex2f(790.0f, 250.0f);
+        glVertex2f(560.0f, 260.0f); glVertex2f(790.0f, 260.0f);
+        glVertex2f(600.0f, 280.0f); glVertex2f(750.0f, 280.0f);
+        glVertex2f(600.0f, 290.0f); glVertex2f(750.0f, 290.0f);
+
+        // Vertical lines
+        glVertex2f(560.0f, 250.0f); glVertex2f(560.0f, 260.0f);
+        glVertex2f(790.0f, 250.0f); glVertex2f(790.0f, 260.0f);
+        glVertex2f(600.0f, 280.0f); glVertex2f(600.0f, 290.0f);
+        glVertex2f(750.0f, 280.0f); glVertex2f(750.0f, 290.0f);
+    glEnd();
+
+    // Draw the three curves
+    glLineWidth(1.0f);
+    glColor3f(1.0f, 1.0f, 1.0f);
+
+    // Curve 1
+    drawQuadraticBezier(560.0f, 260.0f, 575.0f, 265.0f, 600.0f, 280.0f);
+
+    // Curve 2
+    drawQuadraticBezier(790.0f, 260.0f, 775.0f, 265.0f, 750.0f, 280.0f);
+
+    // Curve 3 (cosine-like)
+    const float PI = 3.14159f;
+    glBegin(GL_LINE_STRIP);
+    for (int i = 0; i <= 100; ++i) {
+        float t = (float)i / 100.0f; // t from 0 to 1
+        float x = 600.0f + t * (750.0f - 600.0f); // x from 600 to 750
+        // Map x to angle: x=600 -> -3/4 PI, x=675 -> 0, x=750 -> 3/4 PI
+        float angle = (x - 675.0f) / 75.0f * PI;
+        // y = A * cos(angle) + C. A=20, C=310
+        float y = 20.0f * cos(angle) + 310.0f;
+        glVertex2f(x, y);
+    }
+    glEnd();
+
+    glLineWidth(1.0f);
 }
 
 /* Two-tone rotating ring on the cover */
