@@ -1,6 +1,9 @@
 #include <iostream>
 #include <GL/freeglut.h>
 #include <cmath>
+#include <vector>
+#include <cstdlib>
+#include <ctime>
 
 // --- Global settings ---
 int windowWidth = 600;
@@ -29,14 +32,14 @@ float cloud2_posX = 450.0f;
 float greeting_alpha = 0.0f;
 
 // Building transform
-float buildingPosX = 165.0f;
+float buildingPosX = 152.0f;
 float buildingPosY = 300.0f;
-float buildingScaleX = 0.3f;
-float buildingScaleY = 0.3f;
+float buildingScaleX = 0.33f;
+float buildingScaleY = 0.33f;
 
 const float SHADOW_OFFSET = 7.0f;
-const float SHADOW_ALPHA_DAY = 0.2f;
-const float SHADOW_ALPHA_NIGHT = 0.3f;
+const float SHADOW_ALPHA_DAY = 0.15f;
+const float SHADOW_ALPHA_NIGHT = 0.2f;
 
 // Zoom and Pan Variables
 const float MIN_LEFT = 0.0f;
@@ -55,6 +58,39 @@ const float MIN_ZOOM = 1.0f;
 const float MAX_ZOOM = 3.0f;
 
 const float PAN_STEP = 20.0f;
+
+// Balloon structure
+struct Balloon {
+    float x, y;           // Position
+    float size;           // Size multiplier
+    float colorR, colorG, colorB;  // Color
+    float speed;          // Rising speed
+    bool active;          // Whether balloon is active
+    
+    Balloon(float _x, float _y, float _size, float r, float g, float b, float spd)
+        : x(_x), y(_y), size(_size), colorR(r), colorG(g), colorB(b), speed(spd), active(true) {}
+};
+
+std::vector<Balloon> balloons;
+
+// Balloon color presets (light and dark for gradient)
+struct BalloonColor {
+    float r, g, b;
+};
+
+const BalloonColor balloonColors[] = {
+    {1.0f, 0.3f, 0.3f},    // Red
+    {1.0f, 0.6f, 0.2f},    // Orange
+    {1.0f, 0.4f, 0.7f},    // Pink
+    {0.5f, 0.3f, 0.9f},    // Purple
+    {0.3f, 0.7f, 1.0f},    // Light Blue
+    {1.0f, 0.9f, 0.3f},    // Yellow
+    {0.4f, 0.9f, 0.5f}     // Light Green
+};
+const int numBalloonColors = sizeof(balloonColors) / sizeof(balloonColors[0]);
+
+// Forward declarations
+void drawBalloon(float x, float y, float size, float r, float g, float b);
 
 /* Draw a filled circle at (cx,cy) with radius r */
 void drawCircle(float cx, float cy, float r) {
@@ -438,6 +474,147 @@ void drawAllBushes()
     drawBushes_FrontLayer();
 }
 
+
+void drawBalloonShadow(float x, float y, float size, float shadow_alpha) {
+    const float balloonWidth = 40.0f * size;
+    const float balloonHeight = 60.0f * size;
+    const int segments = 60;
+    const int layers = 5;
+
+    // Draw multiple layers with decreasing size and increasing alpha
+    for (int layer = 0; layer < layers; ++layer) {
+        float layerFactor = 1.0f - (float)layer / layers;  
+        float currentAlpha = shadow_alpha * ((float)(layer + 1) / layers);  
+        float shrinkFactor = 0.9f + 0.1f * layerFactor;  
+
+        glColor4f(0.0f, 0.0f, 0.0f, currentAlpha);
+
+        // Draw full balloon shadow
+        glBegin(GL_TRIANGLE_FAN);
+        glVertex2f(x, y); 
+
+        for (int i = 0; i <= segments; ++i) {
+            float angle = 2.0f * 3.14159f * (float)i / segments;  
+            float verticalPos = sin(angle);
+
+            float radiusX, radiusY;
+            if (verticalPos >= 0) {
+                radiusX = balloonWidth * (0.9f + 0.1f * verticalPos) * shrinkFactor;
+                radiusY = balloonHeight * 0.55f * shrinkFactor;
+            }
+            else {
+                radiusX = balloonWidth * (0.9f + 0.5f * verticalPos) * shrinkFactor;
+                radiusY = balloonHeight * 0.55f * shrinkFactor;
+            }
+
+            glVertex2f(x + radiusX * cos(angle), y + radiusY * sin(angle));
+        }
+        glEnd();
+    }
+}
+
+
+/* Draw a balloon with shadow */
+void drawBalloon(float x, float y, float size, float r, float g, float b) {
+    const float balloonWidth = 40.0f * size;
+    const float balloonHeight = 60.0f * size;
+    const float stringLength = 80.0f * size;
+
+    // Shadow parameters
+    float shadow_alpha = is_day ? SHADOW_ALPHA_DAY : SHADOW_ALPHA_NIGHT;
+    const float shadowOffsetX = 5.0f * size;  
+    const float shadowOffsetY = 5.0f * size;   
+
+    // Draw feathered balloon shadow
+    drawBalloonShadow(x + shadowOffsetX, y + shadowOffsetY, size, shadow_alpha);
+
+    // Draw string (sine)
+    glLineWidth(2.0f * size);
+    glColor3f(r * 0.6f, g * 0.6f, b * 0.6f);
+    glBegin(GL_LINE_STRIP);
+    for (int i = 0; i <= 50; ++i) {
+        float t = (float)i / 50.0f;
+        float stringX = x + sin(t * 3.14159f * 4.0f) * 3.0f * size;
+        float stringY = y - t * stringLength;
+        glVertex2f(stringX, stringY);
+    }
+    glEnd();
+    glLineWidth(1.0f);
+
+    // Draw left half (lighter color)
+    const int segments = 60;
+    float lightR = r + 0.2f;
+    float lightG = g + 0.2f;
+    float lightB = b + 0.2f;
+    
+    // Clamp light colors
+    lightR = lightR > 1.0f ? 1.0f : lightR;
+    lightG = lightG > 1.0f ? 1.0f : lightG;
+    lightB = lightB > 1.0f ? 1.0f : lightB;
+    
+    glColor3f(lightR, lightG, lightB);
+    glBegin(GL_TRIANGLE_FAN);
+    glVertex2f(x, y);  
+    
+    for (int i = 0; i <= segments / 2; ++i) {
+        float angle = 3.14159f * 1.5f - (float)i / (segments / 2) * 3.14159f;  
+        float verticalPos = sin(angle);  
+        
+        float radiusX, radiusY;
+        if (verticalPos >= 0) {
+            // Top half
+            radiusX = balloonWidth * (0.9f + 0.1f * verticalPos);
+            radiusY = balloonHeight * 0.55f;
+        }
+        else {
+            // Bottom half
+            radiusX = balloonWidth * (0.9f + 0.5f * verticalPos);
+            radiusY = balloonHeight * 0.55f;
+        }
+        
+        float cosA = cos(angle);
+        float sinA = sin(angle);
+        glVertex2f(x + radiusX * cosA, y + radiusY * sinA);
+    }
+    glEnd();
+
+    // Draw right half (darker color)
+    float darkR = r - 0.15f;
+    float darkG = g - 0.15f;
+    float darkB = b - 0.15f;
+    
+    // Clamp dark colors
+    darkR = darkR < 0.0f ? 0.0f : darkR;
+    darkG = darkG < 0.0f ? 0.0f : darkG;
+    darkB = darkB < 0.0f ? 0.0f : darkB;
+    
+    glColor3f(darkR, darkG, darkB);
+    glBegin(GL_TRIANGLE_FAN);
+    glVertex2f(x, y);  
+    
+    for (int i = 0; i <= segments / 2; ++i) {
+        float angle = 3.14159f * 0.5f - (float)i / (segments / 2) * 3.14159f;  
+        float verticalPos = sin(angle);  
+        
+        float radiusX, radiusY;
+        if (verticalPos >= 0) {
+            // Top half
+            radiusX = balloonWidth * (0.9f + 0.1f * verticalPos);
+            radiusY = balloonHeight * 0.55f;
+        }
+        else {
+            // Bottom half
+            radiusX = balloonWidth * (0.9f + 0.5f * verticalPos);
+            radiusY = balloonHeight * 0.55f;
+        }
+        
+        float cosA = cos(angle);
+        float sinA = sin(angle);
+        glVertex2f(x + radiusX * cosA, y + radiusY * sinA);
+    }
+    glEnd();
+}
+
 /* Draw greeting text when enabled */
 void drawGreetingText() {
     if (show_greeting) {
@@ -453,8 +630,6 @@ void drawGreetingText() {
 /* Draw a quadratic Bezier curve that passes through three points */
 void drawQuadraticBezier(float p0x, float p0y, float p1x, float p1y, float p2x, float p2y)
 {
-    // Calculate the control point P1 for a Bezier curve P0-P1-P2
-    // such that the curve passes through the given middle point at t=0.5.
     float ctrl_x = 2.0f * p1x - 0.5f * p0x - 0.5f * p2x;
     float ctrl_y = 2.0f * p1y - 0.5f * p0y - 0.5f * p2y;
 
@@ -544,11 +719,9 @@ void drawCoverPolygons()
     const float PI = 3.14159f;
     glBegin(GL_LINE_STRIP);
     for (int i = 0; i <= 100; ++i) {
-        float t = (float)i / 100.0f; // t from 0 to 1
-        float x = 600.0f + t * (750.0f - 600.0f); // x from 600 to 750
-        // Map x to angle: x=600 -> -3/4 PI, x=675 -> 0, x=750 -> 3/4 PI
+        float t = (float)i / 100.0f; 
+        float x = 600.0f + t * (750.0f - 600.0f); 
         float angle = (x - 675.0f) / 75.0f * PI;
-        // y = A * cos(angle) + C. A=20, C=310
         float y = 20.0f * cos(angle) + 310.0f;
         glVertex2f(x, y);
     }
@@ -680,6 +853,14 @@ void display() {
         glPopMatrix();
         drawAllBushes();
 
+        // Draw all active balloons
+        for (size_t i = 0; i < balloons.size(); ++i) {
+            if (balloons[i].active) {
+                drawBalloon(balloons[i].x, balloons[i].y, balloons[i].size,
+                           balloons[i].colorR, balloons[i].colorG, balloons[i].colorB);
+            }
+        }
+
         drawGreetingText();
     }
 
@@ -719,12 +900,37 @@ void update(int value) {
         greeting_alpha -= 0.02f;
     }
 
+    // Update balloons
+    for (size_t i = 0; i < balloons.size(); ++i) {
+        if (balloons[i].active) {
+            balloons[i].y += balloons[i].speed;
+            
+            // Deactivate balloon if it floats out of view
+            if (balloons[i].y > viewTop + 100.0f) {
+                balloons[i].active = false;
+            }
+        }
+    }
+    
+    // Clean up inactive balloons
+    static int frameCount = 0;
+    frameCount++;
+    if (frameCount > 300) {  
+        frameCount = 0;
+        std::vector<Balloon> activeBalloons;
+        for (size_t i = 0; i < balloons.size(); ++i) {
+            if (balloons[i].active) {
+                activeBalloons.push_back(balloons[i]);
+            }
+        }
+        balloons = activeBalloons;
+    }
+
     glutPostRedisplay();
     glutTimerFunc(16, update, 0);
 }
 
 void specialKeys(int key, int x, int y) {
-    // Only allow panning when not showing cover
     if (isCoverVisible) {
         return;
     }
@@ -903,7 +1109,23 @@ void keyboard(unsigned char key, int x, int y) {
 
 void mouse(int button, int state, int x, int y) {
     if (button == GLUT_LEFT_BUTTON && state == GLUT_DOWN) {
-        show_greeting = !show_greeting;
+        if (isCoverVisible) {
+            show_greeting = !show_greeting;
+        } else {
+            float worldX = viewLeft + (float)x / windowWidth * (viewRight - viewLeft);
+            float worldY = viewTop - (float)y / windowHeight * (viewTop - viewBottom);
+            
+            float randomSize = 0.6f + (rand() % 70) / 100.0f;
+            
+            int colorIndex = rand() % numBalloonColors;
+            BalloonColor color = balloonColors[colorIndex];
+            
+            float randomSpeed = 0.5f + (rand() % 100) / 100.0f;
+            
+            // Create balloon
+            balloons.push_back(Balloon(worldX, worldY, randomSize, 
+                                      color.r, color.g, color.b, randomSpeed));
+        }
     }
 }
 
@@ -923,6 +1145,9 @@ void reshape(int w, int h)
 }
 
 int main(int argc, char** argv) {
+    // Initialize random seed
+    srand(static_cast<unsigned int>(time(NULL)));
+    
     glutInit(&argc, argv);
     glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH);
     glutInitWindowSize(windowWidth, windowHeight);
@@ -946,9 +1171,11 @@ int main(int argc, char** argv) {
     std::cout << "Press '+': Zoom in" << std::endl;
     std::cout << "Press '-': Zoom out" << std::endl;
     std::cout << "Arrow keys: Pan view (when zoomed)" << std::endl;
-    std::cout << "Left click: Show/hide greeting" << std::endl;
+    std::cout << "Left click on cover: Show/hide greeting" << std::endl;
+    std::cout << "Left click inside card: Create floating balloon" << std::endl;
     std::cout << "Press 'q' or 'ESC': Quit" << std::endl;
 
     glutMainLoop();
     return 0;
 }
+
