@@ -18,6 +18,13 @@ bool areLightsOn = false;
 // UI
 bool showHints = true;
 
+// Postcard/Snapshot Mode
+bool isPostcardMode = false;
+bool isFlashing = false;
+float flashAlpha = 0.0f;
+int flashFrameCount = 0;
+const int FLASH_DURATION = 15; // frames
+
 // Cover ring animation
 float ringRotationAngle = 0.0f;
 bool isAnimating = false;
@@ -70,9 +77,10 @@ struct Balloon {
     float colorR, colorG, colorB;  // Color
     float speed;          // Rising speed
     bool active;          // Whether balloon is active
-    
+
     Balloon(float _x, float _y, float _size, float r, float g, float b, float spd)
-        : x(_x), y(_y), size(_size), colorR(r), colorG(g), colorB(b), speed(spd), active(true) {}
+        : x(_x), y(_y), size(_size), colorR(r), colorG(g), colorB(b), speed(spd), active(true) {
+    }
 };
 
 std::vector<Balloon> balloons;
@@ -519,18 +527,18 @@ void drawBalloonShadow(float x, float y, float size, float shadow_alpha) {
 
     // Draw multiple layers with decreasing size and increasing alpha
     for (int layer = 0; layer < layers; ++layer) {
-        float layerFactor = 1.0f - (float)layer / layers;  
-        float currentAlpha = shadow_alpha * ((float)(layer + 1) / layers);  
-        float shrinkFactor = 0.9f + 0.1f * layerFactor;  
+        float layerFactor = 1.0f - (float)layer / layers;
+        float currentAlpha = shadow_alpha * ((float)(layer + 1) / layers);
+        float shrinkFactor = 0.9f + 0.1f * layerFactor;
 
         glColor4f(0.0f, 0.0f, 0.0f, currentAlpha);
 
         // Draw full balloon shadow
         glBegin(GL_TRIANGLE_FAN);
-        glVertex2f(x, y); 
+        glVertex2f(x, y);
 
         for (int i = 0; i <= segments; ++i) {
-            float angle = 2.0f * 3.14159f * (float)i / segments;  
+            float angle = 2.0f * 3.14159f * (float)i / segments;
             float verticalPos = sin(angle);
 
             float radiusX, radiusY;
@@ -557,8 +565,8 @@ void drawBalloon(float x, float y, float size, float r, float g, float b) {
 
     // Shadow parameters
     float shadow_alpha = is_day ? SHADOW_ALPHA_DAY : SHADOW_ALPHA_NIGHT;
-    const float shadowOffsetX = 5.0f * size;  
-    const float shadowOffsetY = 5.0f * size;   
+    const float shadowOffsetX = 5.0f * size;
+    const float shadowOffsetY = 5.0f * size;
 
     // Draw feathered balloon shadow
     drawBalloonShadow(x + shadowOffsetX, y + shadowOffsetY, size, shadow_alpha);
@@ -581,20 +589,20 @@ void drawBalloon(float x, float y, float size, float r, float g, float b) {
     float lightR = r + 0.2f;
     float lightG = g + 0.2f;
     float lightB = b + 0.2f;
-    
+
     // Clamp light colors
     lightR = lightR > 1.0f ? 1.0f : lightR;
     lightG = lightG > 1.0f ? 1.0f : lightG;
     lightB = lightB > 1.0f ? 1.0f : lightB;
-    
+
     glColor3f(lightR, lightG, lightB);
     glBegin(GL_TRIANGLE_FAN);
-    glVertex2f(x, y);  
-    
+    glVertex2f(x, y);
+
     for (int i = 0; i <= segments / 2; ++i) {
-        float angle = 3.14159f * 1.5f - (float)i / (segments / 2) * 3.14159f;  
-        float verticalPos = sin(angle);  
-        
+        float angle = 3.14159f * 1.5f - (float)i / (segments / 2) * 3.14159f;
+        float verticalPos = sin(angle);
+
         float radiusX, radiusY;
         if (verticalPos >= 0) {
             // Top half
@@ -606,7 +614,7 @@ void drawBalloon(float x, float y, float size, float r, float g, float b) {
             radiusX = balloonWidth * (0.9f + 0.5f * verticalPos);
             radiusY = balloonHeight * 0.55f;
         }
-        
+
         float cosA = cos(angle);
         float sinA = sin(angle);
         glVertex2f(x + radiusX * cosA, y + radiusY * sinA);
@@ -617,20 +625,20 @@ void drawBalloon(float x, float y, float size, float r, float g, float b) {
     float darkR = r - 0.15f;
     float darkG = g - 0.15f;
     float darkB = b - 0.15f;
-    
+
     // Clamp dark colors
     darkR = darkR < 0.0f ? 0.0f : darkR;
     darkG = darkG < 0.0f ? 0.0f : darkG;
     darkB = darkB < 0.0f ? 0.0f : darkB;
-    
+
     glColor3f(darkR, darkG, darkB);
     glBegin(GL_TRIANGLE_FAN);
-    glVertex2f(x, y);  
-    
+    glVertex2f(x, y);
+
     for (int i = 0; i <= segments / 2; ++i) {
-        float angle = 3.14159f * 0.5f - (float)i / (segments / 2) * 3.14159f;  
-        float verticalPos = sin(angle);  
-        
+        float angle = 3.14159f * 0.5f - (float)i / (segments / 2) * 3.14159f;
+        float verticalPos = sin(angle);
+
         float radiusX, radiusY;
         if (verticalPos >= 0) {
             // Top half
@@ -642,7 +650,7 @@ void drawBalloon(float x, float y, float size, float r, float g, float b) {
             radiusX = balloonWidth * (0.9f + 0.5f * verticalPos);
             radiusY = balloonHeight * 0.55f;
         }
-        
+
         float cosA = cos(angle);
         float sinA = sin(angle);
         glVertex2f(x + radiusX * cosA, y + radiusY * sinA);
@@ -655,25 +663,25 @@ void drawFlowerShadow(float x, float y, float size, int petalCount, float shadow
     const float petalLength = 15.0f * size;
     const float petalWidth = 10.0f * size;
     const int layers = 5;
-    
+
     for (int layer = 0; layer < layers; ++layer) {
         float layerFactor = 1.0f - (float)layer / layers;
         float currentAlpha = shadow_alpha * ((float)(layer + 1) / layers);
         float shrinkFactor = 0.9f + 0.1f * layerFactor;
-        
+
         glColor4f(0.0f, 0.0f, 0.0f, currentAlpha);
-        
+
         // Draw petals
         for (int i = 0; i < petalCount; ++i) {
             float angle = (360.0f / petalCount) * i;
             float radians = angle * 3.14159f / 180.0f;
-            
+
             float petalX = x + cos(radians) * petalLength * 0.5f * shrinkFactor;
             float petalY = y + sin(radians) * petalLength * 0.5f * shrinkFactor;
-            
+
             drawCircle(petalX, petalY, petalWidth * shrinkFactor);
         }
-        
+
         // Center circle shadow
         drawCircle(x, y, 5.0f * size * shrinkFactor);
     }
@@ -685,7 +693,7 @@ void drawFlowerShadow(float x, float y, float size, int petalCount, float shadow
 void initializeStars() {
     stars.clear();
     srand(12345); // Fixed seed for consistent star positions
-    
+
     for (int i = 0; i < 100; ++i) {
         Star star;
         star.x = (rand() % 600);
@@ -694,7 +702,7 @@ void initializeStars() {
         star.twinkleSpeed = 0.5f + (rand() % 150) / 100.0f;
         stars.push_back(star);
     }
-    
+
     srand(static_cast<unsigned int>(time(NULL))); // Reset to random seed
 }
 
@@ -703,31 +711,186 @@ void drawStars() {
     if (!is_day) {
         glPointSize(2.0f);
         glBegin(GL_POINTS);
-        
+
         for (size_t i = 0; i < stars.size(); ++i) {
             float twinkle = 0.5f + 0.5f * sin(starTwinklePhase * stars[i].twinkleSpeed + i);
             float alpha = stars[i].brightness * twinkle;
             glColor4f(1.0f, 1.0f, 1.0f, alpha);
             glVertex2f(stars[i].x, stars[i].y);
         }
-        
+
         glEnd();
         glPointSize(1.0f);
     }
 }
 
+/* Draw flash transition effect */
+void drawFlashEffect() {
+    if (isFlashing && flashAlpha > 0.0f) {
+        glColor4f(1.0f, 1.0f, 1.0f, flashAlpha);
+        glBegin(GL_QUADS);
+        glVertex2f(0.0f, 0.0f);
+        glVertex2f(600.0f, 0.0f);
+        glVertex2f(600.0f, 800.0f);
+        glVertex2f(0.0f, 800.0f);
+        glEnd();
+    }
+}
 
+/* Draw tape corner for photo */
+void drawTapeCorner(float x, float y, float width, float height, float rotation) {
+    glPushMatrix();
+    glTranslatef(x, y, 0.0f);
+    glRotatef(rotation, 0.0f, 0.0f, 1.0f);
+    
+    glColor4f(1.0f, 1.0f, 1.0f, 0.7f);
+    glBegin(GL_QUADS);
+    glVertex2f(-width / 2.0f, -height / 2.0f);
+    glVertex2f(width / 2.0f, -height / 2.0f);
+    glVertex2f(width / 2.0f, height / 2.0f);
+    glVertex2f(-width / 2.0f, height / 2.0f);
+    glEnd();
+    
+    glPopMatrix();
+}
 
-/* Draw greeting text when enabled */
-void drawGreetingText() {
-    if (show_greeting) {
-        glColor4f(1.0f, 0.84f, 0.0f, greeting_alpha);
-        glRasterPos2f(50.0f, 750.0f);
-        const char* text = "Happy 20th Anniversary, XJTLU!";
-        for (const char* c = text; *c != '\0'; c++) {
-            glutBitmapCharacter(GLUT_BITMAP_TIMES_ROMAN_24, *c);
+/* Draw the postcard with photo and message */
+void drawPostcard() {
+    // Light purple background
+    glColor3f(0.85f, 0.8f, 0.95f);
+    glBegin(GL_QUADS);
+    glVertex2f(0.0f, 0.0f);
+    glVertex2f(600.0f, 0.0f);
+    glVertex2f(600.0f, 800.0f);
+    glVertex2f(0.0f, 800.0f);
+    glEnd();
+    
+    // Photo dimensions and position
+    const float photoWidth = 480.0f;
+    const float photoHeight = 640.0f;
+    const float photoX = (600.0f - photoWidth) / 2.0f; // 60
+    const float photoY = 120.0f; // Position from bottom
+    
+    // Draw photo border (white frame)
+    glColor3f(1.0f, 1.0f, 1.0f);
+    glBegin(GL_QUADS);
+    glVertex2f(photoX - 5.0f, photoY - 5.0f);
+    glVertex2f(photoX + photoWidth + 5.0f, photoY - 5.0f);
+    glVertex2f(photoX + photoWidth + 5.0f, photoY + photoHeight + 5.0f);
+    glVertex2f(photoX - 5.0f, photoY + photoHeight + 5.0f);
+    glEnd();
+    
+    // Set up viewport and projection for the "photo"
+    glViewport((int)photoX, (int)photoY, (int)photoWidth, (int)photoHeight);
+    glMatrixMode(GL_PROJECTION);
+    glPushMatrix();
+    glLoadIdentity();
+    gluOrtho2D(viewLeft, viewRight, viewBottom, viewTop);
+    glMatrixMode(GL_MODELVIEW);
+    glPushMatrix();
+    glLoadIdentity();
+    
+    // Draw the frozen scene
+    drawSky();
+    drawStars();
+    drawSunOrMoon();
+    drawLayeredBackgroundClouds();
+    drawCloud(cloud1_posX, 650.0f, 1.0f);
+    drawCloud(cloud2_posX, 550.0f, 0.8f);
+    drawGrass();
+    
+    glPushMatrix();
+    drawXJTLUCenterBuilding();
+    glPopMatrix();
+    drawAllBushes();
+    
+    // Draw all active balloons
+    for (size_t i = 0; i < balloons.size(); ++i) {
+        if (balloons[i].active) {
+            drawBalloon(balloons[i].x, balloons[i].y, balloons[i].size,
+                balloons[i].colorR, balloons[i].colorG, balloons[i].colorB);
         }
     }
+    
+    // Restore viewport and projection
+    glMatrixMode(GL_PROJECTION);
+    glPopMatrix();
+    glMatrixMode(GL_MODELVIEW);
+    glPopMatrix();
+    glViewport(0, 0, 600, 800);
+    
+    // Reset projection to screen coordinates
+    glMatrixMode(GL_PROJECTION);
+    glPushMatrix();
+    glLoadIdentity();
+    gluOrtho2D(0, 600, 0, 800);
+    glMatrixMode(GL_MODELVIEW);
+    glPushMatrix();
+    glLoadIdentity();
+    
+    // Draw tape corners
+    const float tapeWidth = 40.0f;
+    const float tapeHeight = 15.0f;
+    const float tapeOffset = 5.0f;
+    
+    // Top-left corner
+    drawTapeCorner(photoX + tapeOffset, photoY + photoHeight - tapeOffset, 
+                    tapeWidth, tapeHeight, -45.0f);
+    // Top-right corner
+    drawTapeCorner(photoX + photoWidth - tapeOffset, photoY + photoHeight - tapeOffset, 
+                    tapeWidth, tapeHeight, 45.0f);
+    // Bottom-left corner
+    drawTapeCorner(photoX + tapeOffset, photoY + tapeOffset, 
+                    tapeWidth, tapeHeight, 45.0f);
+    // Bottom-right corner
+    drawTapeCorner(photoX + photoWidth - tapeOffset, photoY + tapeOffset, 
+                    tapeWidth, tapeHeight, -45.0f);
+    
+    // Draw message box below photo
+    const float msgBoxX = photoX;
+    const float msgBoxY = 20.0f;
+    const float msgBoxWidth = photoWidth;
+    const float msgBoxHeight = 80.0f;
+    
+    // Message box background (light yellow)
+    glColor3f(1.0f, 0.98f, 0.85f);
+    glBegin(GL_QUADS);
+    glVertex2f(msgBoxX, msgBoxY);
+    glVertex2f(msgBoxX + msgBoxWidth, msgBoxY);
+    glVertex2f(msgBoxX + msgBoxWidth, msgBoxY + msgBoxHeight);
+    glVertex2f(msgBoxX, msgBoxY + msgBoxHeight);
+    glEnd();
+    
+    // Message box border
+    glColor3f(0.8f, 0.75f, 0.65f);
+    glLineWidth(2.0f);
+    glBegin(GL_LINE_LOOP);
+    glVertex2f(msgBoxX, msgBoxY);
+    glVertex2f(msgBoxX + msgBoxWidth, msgBoxY);
+    glVertex2f(msgBoxX + msgBoxWidth, msgBoxY + msgBoxHeight);
+    glVertex2f(msgBoxX, msgBoxY + msgBoxHeight);
+    glEnd();
+    glLineWidth(1.0f);
+    
+    // Draw message text
+    glColor3f(0.3f, 0.25f, 0.2f);
+    glRasterPos2f(msgBoxX + 40.0f, msgBoxY + 50.0f);
+    const char* line1 = "Happy 20th Anniversary, XJTLU!";
+    for (const char* c = line1; *c != '\0'; c++) {
+        glutBitmapCharacter(GLUT_BITMAP_TIMES_ROMAN_24, *c);
+    }
+    
+    glRasterPos2f(msgBoxX + 80.0f, msgBoxY + 25.0f);
+    const char* line2 = "Wishing you a bright future ahead!";
+    for (const char* c = line2; *c != '\0'; c++) {
+        glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, *c);
+    }
+    
+    // Restore matrices
+    glMatrixMode(GL_PROJECTION);
+    glPopMatrix();
+    glMatrixMode(GL_MODELVIEW);
+    glPopMatrix();
 }
 
 /* Draw a quadratic Bezier curve that passes through three points */
@@ -774,8 +937,7 @@ void drawCoverPolygons()
     glVertex2f(550.0f, 100.0f);
     glEnd();
 
-    // 小白亭
-    const float xs[] = {585.0f, 615.0f, 645.0f, 675.0f, 705.0f, 735.0f, 765.0f};
+    const float xs[] = { 585.0f, 615.0f, 645.0f, 675.0f, 705.0f, 735.0f, 765.0f };
     const int count = sizeof(xs) / sizeof(xs[0]);
 
     glColor3f(1.0f, 1.0f, 1.0f);
@@ -795,17 +957,17 @@ void drawCoverPolygons()
     glLineWidth(1.0f);
     glColor3f(1.0f, 1.0f, 1.0f);
     glBegin(GL_LINES);
-        // Horizontal lines
-        glVertex2f(560.0f, 250.0f); glVertex2f(790.0f, 250.0f);
-        glVertex2f(560.0f, 260.0f); glVertex2f(790.0f, 260.0f);
-        glVertex2f(600.0f, 280.0f); glVertex2f(750.0f, 280.0f);
-        glVertex2f(600.0f, 290.0f); glVertex2f(750.0f, 290.0f);
+    // Horizontal lines
+    glVertex2f(560.0f, 250.0f); glVertex2f(790.0f, 250.0f);
+    glVertex2f(560.0f, 260.0f); glVertex2f(790.0f, 260.0f);
+    glVertex2f(600.0f, 280.0f); glVertex2f(750.0f, 280.0f);
+    glVertex2f(600.0f, 290.0f); glVertex2f(750.0f, 290.0f);
 
-        // Vertical lines
-        glVertex2f(560.0f, 250.0f); glVertex2f(560.0f, 260.0f);
-        glVertex2f(790.0f, 250.0f); glVertex2f(790.0f, 260.0f);
-        glVertex2f(600.0f, 280.0f); glVertex2f(600.0f, 290.0f);
-        glVertex2f(750.0f, 280.0f); glVertex2f(750.0f, 290.0f);
+    // Vertical lines
+    glVertex2f(560.0f, 250.0f); glVertex2f(560.0f, 260.0f);
+    glVertex2f(790.0f, 250.0f); glVertex2f(790.0f, 260.0f);
+    glVertex2f(600.0f, 280.0f); glVertex2f(600.0f, 290.0f);
+    glVertex2f(750.0f, 280.0f); glVertex2f(750.0f, 290.0f);
     glEnd();
 
     // Draw the three curves
@@ -822,8 +984,8 @@ void drawCoverPolygons()
     const float PI = 3.14159f;
     glBegin(GL_LINE_STRIP);
     for (int i = 0; i <= 100; ++i) {
-        float t = (float)i / 100.0f; 
-        float x = 600.0f + t * (750.0f - 600.0f); 
+        float t = (float)i / 100.0f;
+        float x = 600.0f + t * (750.0f - 600.0f);
         float angle = (x - 675.0f) / 75.0f * PI;
         float y = 20.0f * cos(angle) + 310.0f;
         glVertex2f(x, y);
@@ -933,7 +1095,7 @@ void drawOnScreenHints()
     glMatrixMode(GL_PROJECTION);
     glPushMatrix();
     glLoadIdentity();
-    gluOrtho2D(0, windowWidth, 0, windowHeight); 
+    gluOrtho2D(0, windowWidth, 0, windowHeight);
 
     glMatrixMode(GL_MODELVIEW);
     glPushMatrix();
@@ -941,35 +1103,38 @@ void drawOnScreenHints()
 
     const char* hintText = "";
 
-    if (isCoverVisible)
+    if (isPostcardMode)
+    {
+        hintText = "Press 'G' to Exit Postcard Mode";
+    }
+    else if (isCoverVisible)
     {
         hintText = "Press 'O' to Open/Close Card";
     }
     else
     {
         if (zoomFactor > 1.0f) {
-            hintText = "+/-: Zoom | Arrow Keys: Pan View | 'R': Reset View";
+            hintText = "+/-: Zoom | Arrow Keys: Pan View | 'R': Reset View | 'G': Postcard";
         }
         else {
-            hintText = "Click: Add Balloon | 'N': Day/Night | '+': Zoom In | 'L': Lights (Night)";
+            hintText = "Click: Add Balloon | 'N': Day/Night | '+': Zoom In | 'L': Lights | 'G': Postcard";
         }
     }
 
-    // 为了让文字更清晰，先绘制一个半透明的背景条
-    glColor4f(0.0f, 0.0f, 0.0f, 0.4f); // 半透明黑色
+    // Semi-transparent background for hint text
+    glColor4f(0.0f, 0.0f, 0.0f, 0.4f);
     glBegin(GL_QUADS);
     glVertex2f(0.0f, 0.0f);
     glVertex2f(windowWidth, 0.0f);
-    glVertex2f(windowWidth, 25.0f); // 提示条高度为25像素
+    glVertex2f(windowWidth, 25.0f);
     glVertex2f(0.0f, 25.0f);
     glEnd();
 
-    // 在背景条上绘制白色文字
+    // Draw white text on background
     glColor3f(1.0f, 1.0f, 1.0f);
-    drawText(10.0f, 8.0f, hintText); // 在 (10, 8) 的位置绘制
+    drawText(10.0f, 8.0f, hintText);
 
-    // --- 恢复原始的矩阵 ---
-    // 必须按相反的顺序恢复，以避免状态污染
+    // Restore original matrices
     glMatrixMode(GL_PROJECTION);
     glPopMatrix();
     glMatrixMode(GL_MODELVIEW);
@@ -1000,6 +1165,10 @@ void display() {
     {
         drawGreetingCardCover();
     }
+    else if (isPostcardMode)
+    {
+        drawPostcard();
+    }
     else
     {
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -1022,18 +1191,54 @@ void display() {
         for (size_t i = 0; i < balloons.size(); ++i) {
             if (balloons[i].active) {
                 drawBalloon(balloons[i].x, balloons[i].y, balloons[i].size,
-                           balloons[i].colorR, balloons[i].colorG, balloons[i].colorB);
+                    balloons[i].colorR, balloons[i].colorG, balloons[i].colorB);
             }
         }
-
-        drawGreetingText();
     }
+    
+    // Draw flash effect on top of everything if flashing
+    if (isFlashing) {
+        drawFlashEffect();
+    }
+    
     drawOnScreenHints();
     glutSwapBuffers();
 }
 
 /* Animation update called by timer */
 void update(int value) {
+
+    // Handle flash animation
+    if (isFlashing) {
+        flashFrameCount++;
+        
+        // Flash in quickly
+        if (flashFrameCount < FLASH_DURATION / 3) {
+            flashAlpha = (float)flashFrameCount / (FLASH_DURATION / 3.0f) * 0.85f;
+        }
+        // Flash out
+        else {
+            flashAlpha = 0.85f * (1.0f - (float)(flashFrameCount - FLASH_DURATION / 3) / (FLASH_DURATION * 2.0f / 3.0f));
+        }
+        
+        // End flash
+        if (flashFrameCount >= FLASH_DURATION) {
+            isFlashing = false;
+            flashAlpha = 0.0f;
+            flashFrameCount = 0;
+        }
+        
+        glutPostRedisplay();
+        glutTimerFunc(16, update, 0);
+        return;
+    }
+    
+    // Don't update animations in postcard mode
+    if (isPostcardMode) {
+        glutPostRedisplay();
+        glutTimerFunc(16, update, 0);
+        return;
+    }
 
     if (isAnimating) {
         const float rotationSpeed = 3.0f;
@@ -1075,18 +1280,18 @@ void update(int value) {
     for (size_t i = 0; i < balloons.size(); ++i) {
         if (balloons[i].active) {
             balloons[i].y += balloons[i].speed;
-            
+
             // Deactivate balloon if it floats out of view
             if (balloons[i].y > viewTop + 100.0f) {
                 balloons[i].active = false;
             }
         }
     }
-    
+
     // Clean up inactive balloons
     static int frameCount = 0;
     frameCount++;
-    if (frameCount > 300) {  
+    if (frameCount > 300) {
         frameCount = 0;
         std::vector<Balloon> activeBalloons;
         for (size_t i = 0; i < balloons.size(); ++i) {
@@ -1102,13 +1307,13 @@ void update(int value) {
 }
 
 void specialKeys(int key, int x, int y) {
-    if (isCoverVisible) {
+    if (isCoverVisible || isPostcardMode) {
         return;
     }
 
     float currentWidth = viewRight - viewLeft;
     float currentHeight = viewTop - viewBottom;
-    
+
     bool viewChanged = false;
 
     switch (key) {
@@ -1163,7 +1368,7 @@ void specialKeys(int key, int x, int y) {
 
 void keyboard(unsigned char key, int x, int y) {
     switch (key) {
-    case 'i': case 'I': 
+    case 'i': case 'I':
         showHints = !showHints;
         break;
     case 'o': case 'O':
@@ -1183,33 +1388,43 @@ void keyboard(unsigned char key, int x, int y) {
         }
         break;
     case 'n': case 'N':
-        is_day = !is_day;
+        if (!isPostcardMode) {
+            is_day = !is_day;
+        }
         break;
-    case 'g': case 'G':
-        show_greeting = !show_greeting;
+    case 'p': case 'P':
+        if (!isCoverVisible) {
+            if (!isPostcardMode) {
+                isFlashing = true;
+                flashFrameCount = 0;
+                flashAlpha = 0.0f;
+                
+            }
+            isPostcardMode = !isPostcardMode;
+        }
         break;
-    case 'l': case 'L': 
-        if (!is_day) { 
+    case 'l': case 'L':
+        if (!is_day && !isPostcardMode) {
             areLightsOn = !areLightsOn;
         }
         break;
     case '+': case '=': {
-        if (isCoverVisible) break;
-        
+        if (isCoverVisible || isPostcardMode) break;
+
         if (zoomFactor < MAX_ZOOM) {
             zoomFactor += ZOOM_STEP;
-            
+
             float centerX = (viewLeft + viewRight) / 2.0f;
             float centerY = (viewBottom + viewTop) / 2.0f;
-            
+
             float newWidth = (MIN_RIGHT - MIN_LEFT) / zoomFactor;
             float newHeight = (MIN_TOP - MIN_BOTTOM) / zoomFactor;
-            
+
             viewLeft = centerX - newWidth / 2.0f;
             viewRight = centerX + newWidth / 2.0f;
             viewBottom = centerY - newHeight / 2.0f;
             viewTop = centerY + newHeight / 2.0f;
-            
+
             if (viewLeft < MIN_LEFT) {
                 float offset = MIN_LEFT - viewLeft;
                 viewLeft += offset;
@@ -1230,33 +1445,33 @@ void keyboard(unsigned char key, int x, int y) {
                 viewBottom -= offset;
                 viewTop -= offset;
             }
-            
+
             updateProjection();
             glutPostRedisplay();
         }
         break;
     }
     case '-': case '_': {
-        if (isCoverVisible) break;
-        
+        if (isCoverVisible || isPostcardMode) break;
+
         if (zoomFactor > MIN_ZOOM) {
             zoomFactor -= ZOOM_STEP;
-            
+
             if (zoomFactor < MIN_ZOOM) {
                 zoomFactor = MIN_ZOOM;
             }
-            
+
             float centerX = (viewLeft + viewRight) / 2.0f;
             float centerY = (viewBottom + viewTop) / 2.0f;
-            
+
             float newWidth = (MIN_RIGHT - MIN_LEFT) / zoomFactor;
             float newHeight = (MIN_TOP - MIN_BOTTOM) / zoomFactor;
-            
+
             viewLeft = centerX - newWidth / 2.0f;
             viewRight = centerX + newWidth / 2.0f;
             viewBottom = centerY - newHeight / 2.0f;
             viewTop = centerY + newHeight / 2.0f;
-            
+
             if (viewLeft < MIN_LEFT) {
                 float offset = MIN_LEFT - viewLeft;
                 viewLeft += offset;
@@ -1277,16 +1492,16 @@ void keyboard(unsigned char key, int x, int y) {
                 viewBottom -= offset;
                 viewTop -= offset;
             }
-            
+
             updateProjection();
             glutPostRedisplay();
         }
         break;
     }
-    case 'r': case 'R': 
-        if (!isCoverVisible) { 
+    case 'r': case 'R':
+        if (!isCoverVisible && !isPostcardMode) {
             resetViewToDefault();
-            glutPostRedisplay(); 
+            glutPostRedisplay();
         }
         break;
     case 'q': case 'Q': case 27:
@@ -1297,21 +1512,21 @@ void keyboard(unsigned char key, int x, int y) {
 
 void mouse(int button, int state, int x, int y) {
     if (button == GLUT_LEFT_BUTTON && state == GLUT_DOWN) {
-        // Only create balloons, not toggle greeting
-        if (!isCoverVisible) {
+        // Only create balloons when not in cover or postcard mode
+        if (!isCoverVisible && !isPostcardMode) {
             float worldX = viewLeft + (float)x / windowWidth * (viewRight - viewLeft);
             float worldY = viewTop - (float)y / windowHeight * (viewTop - viewBottom);
-            
+
             float randomSize = 0.6f + (rand() % 70) / 100.0f;
-            
+
             int colorIndex = rand() % numBalloonColors;
             BalloonColor color = balloonColors[colorIndex];
-            
+
             float randomSpeed = 0.5f + (rand() % 100) / 100.0f;
-            
+
             // Create balloon
-            balloons.push_back(Balloon(worldX, worldY, randomSize, 
-                                      color.r, color.g, color.b, randomSpeed));
+            balloons.push_back(Balloon(worldX, worldY, randomSize,
+                color.r, color.g, color.b, randomSpeed));
         }
     }
 }
@@ -1334,10 +1549,10 @@ void reshape(int w, int h)
 int main(int argc, char** argv) {
     // Initialize random seed
     srand(static_cast<unsigned int>(time(NULL)));
-    
+
     // Initialize stars
     initializeStars();
-    
+
     glutInit(&argc, argv);
     glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH);
     glutInitWindowSize(windowWidth, windowHeight);
@@ -1360,7 +1575,7 @@ int main(int argc, char** argv) {
     std::cout << "Press 'o': Open/close the card" << std::endl;
     std::cout << "Press 'n': Toggle day/night" << std::endl;
     std::cout << "Press 'l': Turn on/off building lights (at night)" << std::endl;
-    std::cout << "Press 'g': Show/hide greeting text" << std::endl;
+    std::cout << "Press 'p': Enter/exit Postcard Mode (snapshot)" << std::endl;
     std::cout << "Press '+': Zoom in" << std::endl;
     std::cout << "Press '-': Zoom out" << std::endl;
     std::cout << "Press 'r': Reset view" << std::endl;
@@ -1371,4 +1586,3 @@ int main(int argc, char** argv) {
     glutMainLoop();
     return 0;
 }
-
