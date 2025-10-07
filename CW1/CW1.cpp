@@ -73,6 +73,16 @@ struct Balloon {
 
 std::vector<Balloon> balloons;
 
+// Star structure for night sky
+struct Star {
+    float x, y;
+    float brightness;
+    float twinkleSpeed;
+};
+
+std::vector<Star> stars;
+float starTwinklePhase = 0.0f;
+
 // Balloon color presets (light and dark for gradient)
 struct BalloonColor {
     float r, g, b;
@@ -91,6 +101,7 @@ const int numBalloonColors = sizeof(balloonColors) / sizeof(balloonColors[0]);
 
 // Forward declarations
 void drawBalloon(float x, float y, float size, float r, float g, float b);
+void initializeStars();
 
 /* Draw a filled circle at (cx,cy) with radius r */
 void drawCircle(float cx, float cy, float r) {
@@ -474,7 +485,7 @@ void drawAllBushes()
     drawBushes_FrontLayer();
 }
 
-
+/* Draw a feathered balloon shadow */
 void drawBalloonShadow(float x, float y, float size, float shadow_alpha) {
     const float balloonWidth = 40.0f * size;
     const float balloonHeight = 60.0f * size;
@@ -512,7 +523,6 @@ void drawBalloonShadow(float x, float y, float size, float shadow_alpha) {
         glEnd();
     }
 }
-
 
 /* Draw a balloon with shadow */
 void drawBalloon(float x, float y, float size, float r, float g, float b) {
@@ -614,6 +624,74 @@ void drawBalloon(float x, float y, float size, float r, float g, float b) {
     }
     glEnd();
 }
+
+/* Draw a feathered flower shadow */
+void drawFlowerShadow(float x, float y, float size, int petalCount, float shadow_alpha) {
+    const float petalLength = 15.0f * size;
+    const float petalWidth = 10.0f * size;
+    const int layers = 5;
+    
+    for (int layer = 0; layer < layers; ++layer) {
+        float layerFactor = 1.0f - (float)layer / layers;
+        float currentAlpha = shadow_alpha * ((float)(layer + 1) / layers);
+        float shrinkFactor = 0.9f + 0.1f * layerFactor;
+        
+        glColor4f(0.0f, 0.0f, 0.0f, currentAlpha);
+        
+        // Draw petals
+        for (int i = 0; i < petalCount; ++i) {
+            float angle = (360.0f / petalCount) * i;
+            float radians = angle * 3.14159f / 180.0f;
+            
+            float petalX = x + cos(radians) * petalLength * 0.5f * shrinkFactor;
+            float petalY = y + sin(radians) * petalLength * 0.5f * shrinkFactor;
+            
+            drawCircle(petalX, petalY, petalWidth * shrinkFactor);
+        }
+        
+        // Center circle shadow
+        drawCircle(x, y, 5.0f * size * shrinkFactor);
+    }
+}
+
+
+
+/* Initialize stars for night sky */
+void initializeStars() {
+    stars.clear();
+    srand(12345); // Fixed seed for consistent star positions
+    
+    for (int i = 0; i < 100; ++i) {
+        Star star;
+        star.x = (rand() % 600);
+        star.y = 400.0f + (rand() % 400); // Stars in upper half of sky
+        star.brightness = 0.5f + (rand() % 50) / 100.0f;
+        star.twinkleSpeed = 0.5f + (rand() % 150) / 100.0f;
+        stars.push_back(star);
+    }
+    
+    srand(static_cast<unsigned int>(time(NULL))); // Reset to random seed
+}
+
+/* Draw stars in night sky */
+void drawStars() {
+    if (!is_day) {
+        glPointSize(2.0f);
+        glBegin(GL_POINTS);
+        
+        for (size_t i = 0; i < stars.size(); ++i) {
+            float twinkle = 0.5f + 0.5f * sin(starTwinklePhase * stars[i].twinkleSpeed + i);
+            float alpha = stars[i].brightness * twinkle;
+            glColor4f(1.0f, 1.0f, 1.0f, alpha);
+            glVertex2f(stars[i].x, stars[i].y);
+        }
+        
+        glEnd();
+        glPointSize(1.0f);
+    }
+}
+
+
 
 /* Draw greeting text when enabled */
 void drawGreetingText() {
@@ -842,6 +920,7 @@ void display() {
         glLoadIdentity();
 
         drawSky();
+        drawStars(); // Draw stars in night mode
         drawSunOrMoon();
         drawLayeredBackgroundClouds();
         drawCloud(cloud1_posX, 650.0f, 1.0f);
@@ -898,6 +977,12 @@ void update(int value) {
     }
     else if (!show_greeting && greeting_alpha > 0.0f) {
         greeting_alpha -= 0.02f;
+    }
+
+    // Update star twinkling
+    starTwinklePhase += 0.05f;
+    if (starTwinklePhase > 6.28318f) { // 2*PI
+        starTwinklePhase = 0.0f;
     }
 
     // Update balloons
@@ -1011,6 +1096,9 @@ void keyboard(unsigned char key, int x, int y) {
     case 'n': case 'N':
         is_day = !is_day;
         break;
+    case 'g': case 'G':
+        show_greeting = !show_greeting;
+        break;
     case '+': case '=': {
         if (isCoverVisible) break;
         
@@ -1109,9 +1197,8 @@ void keyboard(unsigned char key, int x, int y) {
 
 void mouse(int button, int state, int x, int y) {
     if (button == GLUT_LEFT_BUTTON && state == GLUT_DOWN) {
-        if (isCoverVisible) {
-            show_greeting = !show_greeting;
-        } else {
+        // Only create balloons, not toggle greeting
+        if (!isCoverVisible) {
             float worldX = viewLeft + (float)x / windowWidth * (viewRight - viewLeft);
             float worldY = viewTop - (float)y / windowHeight * (viewTop - viewBottom);
             
@@ -1148,6 +1235,9 @@ int main(int argc, char** argv) {
     // Initialize random seed
     srand(static_cast<unsigned int>(time(NULL)));
     
+    // Initialize stars
+    initializeStars();
+    
     glutInit(&argc, argv);
     glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH);
     glutInitWindowSize(windowWidth, windowHeight);
@@ -1168,11 +1258,11 @@ int main(int argc, char** argv) {
     std::cout << "--- Controls ---" << std::endl;
     std::cout << "Press 'o': Open/close the card" << std::endl;
     std::cout << "Press 'n': Toggle day/night" << std::endl;
+    std::cout << "Press 'g': Show/hide greeting text" << std::endl;
     std::cout << "Press '+': Zoom in" << std::endl;
     std::cout << "Press '-': Zoom out" << std::endl;
     std::cout << "Arrow keys: Pan view (when zoomed)" << std::endl;
-    std::cout << "Left click on cover: Show/hide greeting" << std::endl;
-    std::cout << "Left click inside card: Create floating balloon" << std::endl;
+    std::cout << "Left click: Create floating balloon" << std::endl;
     std::cout << "Press 'q' or 'ESC': Quit" << std::endl;
 
     glutMainLoop();
