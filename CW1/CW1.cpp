@@ -13,6 +13,10 @@ int windowHeight = 800;
 bool is_day = true;
 bool show_greeting = false;
 bool isCoverVisible = true;
+bool areLightsOn = false;
+
+// UI
+bool showHints = true;
 
 // Cover ring animation
 float ringRotationAngle = 0.0f;
@@ -131,21 +135,42 @@ void drawFeatheredCircle(float cx, float cy, float radius, float feather,
 /* Building lower layer (two main faces) */
 void drawBuilding_LowerLayer()
 {
-    glColor3f(0.68f, 0.73f, 0.79f);
-    glBegin(GL_POLYGON);
-    glVertex2f(50.0f, 0.0f);
-    glVertex2f(50.0f, 550.0f);
-    glVertex2f(450.0f, 750.0f);
-    glVertex2f(450.0f, 0.0f);
-    glEnd();
+    if (!is_day && areLightsOn)
+    {
+        glColor3f(0.98f, 0.82f, 0.49f);
+        glBegin(GL_POLYGON);
+        glVertex2f(50.0f, 0.0f);
+        glVertex2f(50.0f, 550.0f);
+        glVertex2f(450.0f, 750.0f);
+        glVertex2f(450.0f, 0.0f);
+        glEnd();
 
-    glColor3f(0.25f, 0.46f, 0.62f);
-    glBegin(GL_POLYGON);
-    glVertex2f(450.0f, 0.0f);
-    glVertex2f(450.0f, 750.0f);
-    glVertex2f(850.0f, 550.0f);
-    glVertex2f(850.0f, 0.0f);
-    glEnd();
+        glColor3f(0.9f, 0.69f, 0.37f);
+        glBegin(GL_POLYGON);
+        glVertex2f(450.0f, 0.0f);
+        glVertex2f(450.0f, 750.0f);
+        glVertex2f(850.0f, 550.0f);
+        glVertex2f(850.0f, 0.0f);
+        glEnd();
+    }
+    else
+    {
+        glColor3f(0.68f, 0.73f, 0.79f);
+        glBegin(GL_POLYGON);
+        glVertex2f(50.0f, 0.0f);
+        glVertex2f(50.0f, 550.0f);
+        glVertex2f(450.0f, 750.0f);
+        glVertex2f(450.0f, 0.0f);
+        glEnd();
+
+        glColor3f(0.25f, 0.46f, 0.62f);
+        glBegin(GL_POLYGON);
+        glVertex2f(450.0f, 0.0f);
+        glVertex2f(450.0f, 750.0f);
+        glVertex2f(850.0f, 550.0f);
+        glVertex2f(850.0f, 0.0f);
+        glEnd();
+    }
 }
 
 /* Lighter upper building parts */
@@ -890,6 +915,67 @@ void drawGreetingCardCover()
     }
 }
 
+
+void drawText(float x, float y, const char* text) {
+    glRasterPos2f(x, y);
+    for (const char* c = text; *c != '\0'; c++) {
+        glutBitmapCharacter(GLUT_BITMAP_HELVETICA_12, *c);
+    }
+}
+
+
+void drawOnScreenHints()
+{
+    if (!showHints) {
+        return;
+    }
+
+    glMatrixMode(GL_PROJECTION);
+    glPushMatrix();
+    glLoadIdentity();
+    gluOrtho2D(0, windowWidth, 0, windowHeight); 
+
+    glMatrixMode(GL_MODELVIEW);
+    glPushMatrix();
+    glLoadIdentity();
+
+    const char* hintText = "";
+
+    if (isCoverVisible)
+    {
+        hintText = "Press 'O' to Open/Close Card";
+    }
+    else
+    {
+        if (zoomFactor > 1.0f) {
+            hintText = "+/-: Zoom | Arrow Keys: Pan View | 'R': Reset View";
+        }
+        else {
+            hintText = "Click: Add Balloon | 'N': Day/Night | '+': Zoom In | 'L': Lights (Night)";
+        }
+    }
+
+    // 为了让文字更清晰，先绘制一个半透明的背景条
+    glColor4f(0.0f, 0.0f, 0.0f, 0.4f); // 半透明黑色
+    glBegin(GL_QUADS);
+    glVertex2f(0.0f, 0.0f);
+    glVertex2f(windowWidth, 0.0f);
+    glVertex2f(windowWidth, 25.0f); // 提示条高度为25像素
+    glVertex2f(0.0f, 25.0f);
+    glEnd();
+
+    // 在背景条上绘制白色文字
+    glColor3f(1.0f, 1.0f, 1.0f);
+    drawText(10.0f, 8.0f, hintText); // 在 (10, 8) 的位置绘制
+
+    // --- 恢复原始的矩阵 ---
+    // 必须按相反的顺序恢复，以避免状态污染
+    glMatrixMode(GL_PROJECTION);
+    glPopMatrix();
+    glMatrixMode(GL_MODELVIEW);
+    glPopMatrix();
+}
+
 /* Update the projection based on current view bounds */
 void updateProjection()
 {
@@ -942,7 +1028,7 @@ void display() {
 
         drawGreetingText();
     }
-
+    drawOnScreenHints();
     glutSwapBuffers();
 }
 
@@ -1077,6 +1163,9 @@ void specialKeys(int key, int x, int y) {
 
 void keyboard(unsigned char key, int x, int y) {
     switch (key) {
+    case 'i': case 'I': 
+        showHints = !showHints;
+        break;
     case 'o': case 'O':
         if (!isAnimating) {
             isAnimating = true;
@@ -1098,6 +1187,11 @@ void keyboard(unsigned char key, int x, int y) {
         break;
     case 'g': case 'G':
         show_greeting = !show_greeting;
+        break;
+    case 'l': case 'L': 
+        if (!is_day) { 
+            areLightsOn = !areLightsOn;
+        }
         break;
     case '+': case '=': {
         if (isCoverVisible) break;
@@ -1189,6 +1283,12 @@ void keyboard(unsigned char key, int x, int y) {
         }
         break;
     }
+    case 'r': case 'R': 
+        if (!isCoverVisible) { 
+            resetViewToDefault();
+            glutPostRedisplay(); 
+        }
+        break;
     case 'q': case 'Q': case 27:
         exit(0);
         break;
@@ -1256,11 +1356,14 @@ int main(int argc, char** argv) {
     glutTimerFunc(16, update, 0);
 
     std::cout << "--- Controls ---" << std::endl;
+    std::cout << "Press 'i': Toggle on-screen hints" << std::endl;
     std::cout << "Press 'o': Open/close the card" << std::endl;
     std::cout << "Press 'n': Toggle day/night" << std::endl;
+    std::cout << "Press 'l': Turn on/off building lights (at night)" << std::endl;
     std::cout << "Press 'g': Show/hide greeting text" << std::endl;
     std::cout << "Press '+': Zoom in" << std::endl;
     std::cout << "Press '-': Zoom out" << std::endl;
+    std::cout << "Press 'r': Reset view" << std::endl;
     std::cout << "Arrow keys: Pan view (when zoomed)" << std::endl;
     std::cout << "Left click: Create floating balloon" << std::endl;
     std::cout << "Press 'q' or 'ESC': Quit" << std::endl;
