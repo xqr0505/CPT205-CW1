@@ -18,7 +18,7 @@ bool areLightsOn = false;
 // UI
 bool showHints = true;
 
-// Postcard/Snapshot Mode
+// Postcard Mode
 bool isPostcardMode = false;
 bool isFlashing = false;
 float flashAlpha = 0.0f;
@@ -103,11 +103,12 @@ struct BalloonColor {
 const BalloonColor balloonColors[] = {
     {1.0f, 0.3f, 0.3f},    // Red
     {1.0f, 0.6f, 0.2f},    // Orange
+    {1.0f, 0.9f, 0.3f},    // Yellow
+    {0.4f, 0.9f, 0.5f},    // Green
+    {0.3f, 0.7f, 1.0f},    // Blue
     {1.0f, 0.4f, 0.7f},    // Pink
     {0.5f, 0.3f, 0.9f},    // Purple
-    {0.3f, 0.7f, 1.0f},    // Light Blue
-    {1.0f, 0.9f, 0.3f},    // Yellow
-    {0.4f, 0.9f, 0.5f}     // Light Green
+
 };
 const int numBalloonColors = sizeof(balloonColors) / sizeof(balloonColors[0]);
 
@@ -1105,7 +1106,7 @@ void drawOnScreenHints()
 
     if (isPostcardMode)
     {
-        hintText = "Press 'G' to Exit Postcard Mode";
+        hintText = "Press 'P' to Exit Postcard Mode";
     }
     else if (isCoverVisible)
     {
@@ -1114,10 +1115,17 @@ void drawOnScreenHints()
     else
     {
         if (zoomFactor > 1.0f) {
-            hintText = "+/-: Zoom | Arrow Keys: Pan View | 'R': Reset View | 'G': Postcard";
+            hintText = "+/-: Zoom | Arrow Keys: Pan View | 'R': Reset View | 'P': Postcard";
         }
         else {
-            hintText = "Click: Add Balloon | 'N': Day/Night | '+': Zoom In | 'L': Lights | 'G': Postcard";
+            if (is_day) {
+                hintText = "Click: Add Balloon | 'N': Day/Night | '+': Zoom In | 'P': Postcard";
+            }
+            else {
+
+                hintText = "Click: Add Balloon | 'N': Day/Night | '+': Zoom In | 'L': Lights | 'P': Postcard";
+            }
+            
         }
     }
 
