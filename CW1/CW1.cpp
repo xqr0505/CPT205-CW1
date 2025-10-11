@@ -1324,7 +1324,7 @@ void keyboard(unsigned char key, int x, int y) {
         showHints = !showHints;
         break;
     case 'o': case 'O':
-        if (!isAnimating) {
+        if (!isAnimating && !isPostcardMode) {
             isAnimating = true;
             ringRotationAngle = 0.0f;
 
