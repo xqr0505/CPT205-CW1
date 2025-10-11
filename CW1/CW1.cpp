@@ -366,16 +366,16 @@ void drawSky() {
         glColor3f(0.26f, 0.61f, 0.97f);
         glVertex2f(0.0f, 800.0f);
         glVertex2f(600.0f, 800.0f);
-        glColor3f(1.0f, 1.0f, 1.0f);
+        glColor3f(0.8f, 0.9f, 1.0f);
         glVertex2f(600.0f, 0.0f);
         glVertex2f(0.0f, 0.0f);
         glEnd();
     } else {
         glBegin(GL_QUADS);
-        glColor3f(0.05f, 0.05f, 0.2f);
+        glColor3f(0.01f, 0.01f, 0.17f);
         glVertex2f(0.0f, 800.0f);
         glVertex2f(600.0f, 800.0f);
-        glColor3f(0.1f, 0.1f, 0.35f);
+        glColor3f(0.2f, 0.2f, 0.5f);
         glVertex2f(600.0f, 0.0f);
         glVertex2f(0.0f, 0.0f);
         glEnd();
@@ -918,9 +918,20 @@ void drawFlashEffect() {
     }
 }
 
+
+
 // Draws the postcard snapshot with taped photo and message
 void drawPostcard() {
-    // Background
+    glMatrixMode(GL_PROJECTION);    
+    glPushMatrix();                 // Save current projection matrix
+    glLoadIdentity();               
+    gluOrtho2D(0, 600, 0, 800);     
+
+    glMatrixMode(GL_MODELVIEW);     
+    glPushMatrix();                 // Save current modelview matrix
+    glLoadIdentity();               
+
+    // Draw postcard background 
     glColor3f(0.85f, 0.8f, 0.95f);
     glBegin(GL_QUADS);
     glVertex2f(0.0f, 0.0f);
@@ -929,13 +940,13 @@ void drawPostcard() {
     glVertex2f(0.0f, 800.0f);
     glEnd();
 
-    // Photo dimensions and position
+    // Define photo dimensions and position
     const float photoWidth = 480.0f;
     const float photoHeight = 640.0f;
-    const float photoX = (600.0f - photoWidth) / 2.0f; // 60
-    const float photoY = 120.0f; // From bottom
+    const float photoX = (600.0f - photoWidth) / 2.0f;
+    const float photoY = 120.0f;
 
-    // Photo border (frame)
+    // Draw photo frame
     glColor3f(1.0f, 1.0f, 1.0f);
     glBegin(GL_QUADS);
     glVertex2f(photoX - 5.0f, photoY - 5.0f);
@@ -944,17 +955,19 @@ void drawPostcard() {
     glVertex2f(photoX - 5.0f, photoY + photoHeight + 5.0f);
     glEnd();
 
-    // Viewport/projection for the photo content
+    // Set viewport and scissor test to clip drawing to photo area
     glViewport((int)photoX, (int)photoY, (int)photoWidth, (int)photoHeight);
-    glMatrixMode(GL_PROJECTION);
-    glPushMatrix();
-    glLoadIdentity();
-    gluOrtho2D(viewLeft, viewRight, viewBottom, viewTop);
-    glMatrixMode(GL_MODELVIEW);
-    glPushMatrix();
-    glLoadIdentity();
+    glEnable(GL_SCISSOR_TEST);
+    glScissor((int)photoX, (int)photoY, (int)photoWidth, (int)photoHeight);
+    glClear(GL_COLOR_BUFFER_BIT);
 
-    // Frozen scene content
+    // Setup nested projection for scene elements
+    glMatrixMode(GL_PROJECTION);
+    glPushMatrix();               
+    glLoadIdentity();
+    gluOrtho2D(viewLeft, viewRight, viewBottom, viewTop); 
+
+    // Draw all components
     drawSky();
     drawStars();
     drawSunOrMoon();
@@ -963,37 +976,25 @@ void drawPostcard() {
     drawCloud(cloud2_posX, 600.0f, 1.2f);
     drawCloud(cloud3_posX, 550.0f, 0.7f);
     drawGrass();
-
-    glPushMatrix();
     drawXJTLUCenterBuilding();
-    glPopMatrix();
     drawAllBushes();
-
-    // Active balloons
     for (size_t i = 0; i < balloons.size(); ++i) {
         if (balloons[i].active) {
             drawBalloon(balloons[i].x, balloons[i].y, balloons[i].size,
-                        balloons[i].colorR, balloons[i].colorG, balloons[i].colorB);
+                balloons[i].colorR, balloons[i].colorG, balloons[i].colorB);
         }
     }
 
-    // Restore viewport and projection
+    // Restore original projection matrix
     glMatrixMode(GL_PROJECTION);
     glPopMatrix();
-    glMatrixMode(GL_MODELVIEW);
-    glPopMatrix();
+
+    // Disable clipping and reset viewport
+    glDisable(GL_SCISSOR_TEST);
     glViewport(0, 0, 600, 800);
+    glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
 
-    // Reset projection to screen coordinates
-    glMatrixMode(GL_PROJECTION);
-    glPushMatrix();
-    glLoadIdentity();
-    gluOrtho2D(0, 600, 0, 800);
-    glMatrixMode(GL_MODELVIEW);
-    glPushMatrix();
-    glLoadIdentity();
-
-    // Tape corners
+    // Draw 4 tape corners on photo
     const float tapeWidth = 40.0f;
     const float tapeHeight = 15.0f;
     const float tapeOffset = 5.0f;
@@ -1003,13 +1004,13 @@ void drawPostcard() {
     drawTapeCorner(photoX + tapeOffset, photoY + tapeOffset, tapeWidth, tapeHeight, 45.0f);
     drawTapeCorner(photoX + photoWidth - tapeOffset, photoY + tapeOffset, tapeWidth, tapeHeight, -45.0f);
 
-    // Message box
+    // Draw message box below photo
     const float msgBoxX = photoX;
     const float msgBoxY = 20.0f;
     const float msgBoxWidth = photoWidth;
     const float msgBoxHeight = 80.0f;
 
-    // Message background
+    // Message box background
     glColor3f(1.0f, 0.98f, 0.85f);
     glBegin(GL_QUADS);
     glVertex2f(msgBoxX, msgBoxY);
@@ -1018,7 +1019,7 @@ void drawPostcard() {
     glVertex2f(msgBoxX, msgBoxY + msgBoxHeight);
     glEnd();
 
-    // Message border
+    // Message box border
     glColor3f(0.8f, 0.75f, 0.65f);
     glLineWidth(2.0f);
     glBegin(GL_LINE_LOOP);
@@ -1029,7 +1030,7 @@ void drawPostcard() {
     glEnd();
     glLineWidth(1.0f);
 
-    // Message text
+    // Draw anniversary message text
     glColor3f(0.3f, 0.25f, 0.2f);
     glRasterPos2f(msgBoxX + 40.0f, msgBoxY + 50.0f);
     const char* line1 = "Happy 20th Anniversary, XJTLU!";
@@ -1043,14 +1044,16 @@ void drawPostcard() {
         glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, *c);
     }
 
-    // Restore matrices
+    // Restore original matrices
     glMatrixMode(GL_PROJECTION);
     glPopMatrix();
     glMatrixMode(GL_MODELVIEW);
     glPopMatrix();
 }
 
+//============================================
 // Draws on-screen hint bar at the bottom
+//============================================
 void drawOnScreenHints()
 {
     if (!showHints) return;
