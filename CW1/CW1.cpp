@@ -48,9 +48,9 @@ float sunPosY = 700.0f;
 float sunRadius = 50.0f;
 
 // Clouds animation
-float cloud1_posX = 100.0f;
-float cloud2_posX = 450.0f;
-float cloud3_posX = -10.0f;
+float cloud1_posX = -10.0f;
+float cloud2_posX = 150.0f;
+float cloud3_posX = 500.0f;
 
 // Greeting text fade
 float greeting_alpha = 0.0f;
@@ -762,6 +762,7 @@ void drawCoverPolygons()
     glVertex2f(550.0f, 100.0f);
     glEnd();
 
+    // Liverpool White Pavilion
     const float xs[] = { 585.0f, 615.0f, 645.0f, 675.0f, 705.0f, 735.0f, 765.0f };
     const int count = sizeof(xs) / sizeof(xs[0]);
 
@@ -958,9 +959,9 @@ void drawPostcard() {
     drawStars();
     drawSunOrMoon();
     drawLayeredBackgroundClouds();
-    drawCloud(cloud1_posX, 650.0f, 1.2f);
-    drawCloud(cloud2_posX, 550.0f, 0.8f);
-    drawCloud(cloud3_posX, 600.0f, 0.7f);
+    drawCloud(cloud1_posX, 650.0f, 0.8f);
+    drawCloud(cloud2_posX, 600.0f, 1.2f);
+    drawCloud(cloud3_posX, 550.0f, 0.7f);
     drawGrass();
 
     glPushMatrix();
@@ -1066,17 +1067,17 @@ void drawOnScreenHints()
     const char* hintText = "";
 
     if (isPostcardMode) {
-        hintText = "Press 'P' to Exit Postcard Mode";
+        hintText = "Press 'p' to Exit Postcard Mode";
     } else if (isCoverVisible) {
-        hintText = "Press 'O' to Open/Close Card";
+        hintText = "Press 'o' to Open/Close Card | Press 'i' to toggle hints on/off | Press 'q' or 'esc': Quit ";
     } else {
         if (zoomFactor > 1.0f) {
-            hintText = "+/-: Zoom | Arrow Keys: Pan View | 'R': Reset View | 'P': Postcard";
+            hintText = "+/-: Zoom | Arrow Keys: Pan View | 'r': Reset View | 'p': Postcard";
         } else {
             if (is_day) {
-                hintText = "Click: Add Balloon | 'N': Day/Night | '+': Zoom In | 'P': Postcard";
+                hintText = "Click: Add Balloon | 'n': Night | '+': Zoom In | 'p': Postcard";
             } else {
-                hintText = "Click: Add Balloon | 'N': Day/Night | '+': Zoom In | 'L': Lights | 'P': Postcard";
+                hintText = "Click: Add Balloon | 'n': Day | '+': Zoom In | 'l': Lights | 'p': Postcard";
             }
         }
     }
@@ -1143,9 +1144,9 @@ void display() {
         drawStars();
         drawSunOrMoon();
         drawLayeredBackgroundClouds();
-        drawCloud(cloud1_posX, 650.0f, 1.2f);
-        drawCloud(cloud2_posX, 550.0f, 0.8f);
-        drawCloud(cloud3_posX, 600.0f, 0.7f);
+        drawCloud(cloud1_posX, 650.0f, 0.8f);
+        drawCloud(cloud2_posX, 600.0f, 1.2f);
+        drawCloud(cloud3_posX, 550.0f, 0.7f);
         drawGrass();
 
         glPushMatrix();
