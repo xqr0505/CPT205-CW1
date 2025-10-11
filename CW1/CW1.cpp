@@ -859,7 +859,6 @@ void drawCoverRing()
 void drawGreetingCardCover()
 {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
     // Background halves
     glColor3f(0.67f, 0.61f, 0.70f);
     glBegin(GL_QUADS);
@@ -919,17 +918,18 @@ void drawFlashEffect() {
 }
 
 
-
 // Draws the postcard snapshot with taped photo and message
 void drawPostcard() {
-    glMatrixMode(GL_PROJECTION);    
+    
+    // Setup Screen-Space
+    glMatrixMode(GL_PROJECTION);
     glPushMatrix();                 // Save current projection matrix
-    glLoadIdentity();               
-    gluOrtho2D(0, 600, 0, 800);     
+    glLoadIdentity();
+    gluOrtho2D(0, 600, 0, 800);
 
-    glMatrixMode(GL_MODELVIEW);     
+    glMatrixMode(GL_MODELVIEW);
     glPushMatrix();                 // Save current modelview matrix
-    glLoadIdentity();               
+    glLoadIdentity();
 
     // Draw postcard background 
     glColor3f(0.85f, 0.8f, 0.95f);
@@ -955,17 +955,14 @@ void drawPostcard() {
     glVertex2f(photoX - 5.0f, photoY + photoHeight + 5.0f);
     glEnd();
 
-    // Set viewport and scissor test to clip drawing to photo area
+    // Set viewport to the photo's area
     glViewport((int)photoX, (int)photoY, (int)photoWidth, (int)photoHeight);
-    glEnable(GL_SCISSOR_TEST);
-    glScissor((int)photoX, (int)photoY, (int)photoWidth, (int)photoHeight);
-    glClear(GL_COLOR_BUFFER_BIT);
-
-    // Setup nested projection for scene elements
+    // Set projection to match the frozen view
     glMatrixMode(GL_PROJECTION);
-    glPushMatrix();               
+    glPushMatrix();
     glLoadIdentity();
-    gluOrtho2D(viewLeft, viewRight, viewBottom, viewTop); 
+    gluOrtho2D(viewLeft, viewRight, viewBottom, viewTop);
+    glMatrixMode(GL_MODELVIEW);
 
     // Draw all components
     drawSky();
@@ -985,14 +982,13 @@ void drawPostcard() {
         }
     }
 
-    // Restore original projection matrix
+    // Restore screen-space projection
     glMatrixMode(GL_PROJECTION);
     glPopMatrix();
 
-    // Disable clipping and reset viewport
-    glDisable(GL_SCISSOR_TEST);
+    // Restore full window viewport
     glViewport(0, 0, 600, 800);
-    glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+    glMatrixMode(GL_MODELVIEW); 
 
     // Draw 4 tape corners on photo
     const float tapeWidth = 40.0f;
@@ -1051,6 +1047,7 @@ void drawPostcard() {
     glPopMatrix();
 }
 
+
 //============================================
 // Draws on-screen hint bar at the bottom
 //============================================
@@ -1075,7 +1072,7 @@ void drawOnScreenHints()
         hintText = "Press 'o' to Open/Close Card | Press 'i' to toggle hints on/off | Press 'q' or 'esc': Quit ";
     } else {
         if (zoomFactor > 1.0f) {
-            hintText = "+/-: Zoom | Arrow Keys: Pan View | 'r': Reset View | 'p': Postcard";
+            hintText = "Click: Add Balloon | +/-: Zoom | Arrow Keys: Pan View | 'r': Reset View | 'p': Postcard";
         } else {
             if (is_day) {
                 hintText = "Click: Add Balloon | 'n': Night | '+': Zoom In | 'p': Postcard";
@@ -1133,7 +1130,7 @@ void resetViewToDefault()
 // Callbacks 
 // =================
 
-// Main display callback
+ //Main display callback
 void display() {
     if (isCoverVisible) {
         drawGreetingCardCover();
@@ -1151,10 +1148,7 @@ void display() {
         drawCloud(cloud2_posX, 600.0f, 1.2f);
         drawCloud(cloud3_posX, 550.0f, 0.7f);
         drawGrass();
-
-        glPushMatrix();
         drawXJTLUCenterBuilding();
-        glPopMatrix();
         drawAllBushes();
 
         // Active balloons
@@ -1174,6 +1168,7 @@ void display() {
     drawOnScreenHints();
     glutSwapBuffers();
 }
+
 
 // Timer callback to update animation and state
 void update(int value) {
