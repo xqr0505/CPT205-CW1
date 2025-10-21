@@ -1106,6 +1106,31 @@ void drawOnScreenHints()
 // View and projection helpers
 // ===============================
 
+// Clamps the view boundaries to prevent panning outside the valid area
+void clampViewToBounds()
+{
+    if (viewLeft < MIN_LEFT) {
+        float offset = MIN_LEFT - viewLeft;
+        viewLeft += offset;
+        viewRight += offset;
+    }
+    if (viewRight > MIN_RIGHT) {
+        float offset = viewRight - MIN_RIGHT;
+        viewLeft -= offset;
+        viewRight -= offset;
+    }
+    if (viewBottom < MIN_BOTTOM) {
+        float offset = MIN_BOTTOM - viewBottom;
+        viewBottom += offset;
+        viewTop += offset;
+    }
+    if (viewTop > MIN_TOP) {
+        float offset = viewTop - MIN_TOP;
+        viewBottom -= offset;
+        viewTop -= offset;
+    }
+}
+
 // Updates the projection matrix based on current view bounds
 void updateProjection()
 {
@@ -1373,23 +1398,7 @@ void keyboard(unsigned char key, int x, int y) {
             viewBottom = centerY - newHeight / 2.0f;
             viewTop = centerY + newHeight / 2.0f;
 
-            if (viewLeft < MIN_LEFT) {
-                float offset = MIN_LEFT - viewLeft;
-                viewLeft += offset; viewRight += offset;
-            }
-            if (viewRight > MIN_RIGHT) {
-                float offset = viewRight - MIN_RIGHT;
-                viewLeft -= offset; viewRight -= offset;
-            }
-            if (viewBottom < MIN_BOTTOM) {
-                float offset = MIN_BOTTOM - viewBottom;
-                viewBottom += offset; viewTop += offset;
-            }
-            if (viewTop > MIN_TOP) {
-                float offset = viewTop - MIN_TOP;
-                viewBottom -= offset; viewTop -= offset;
-            }
-
+            clampViewToBounds();
             updateProjection();
             glutPostRedisplay();
         }
@@ -1413,23 +1422,7 @@ void keyboard(unsigned char key, int x, int y) {
             viewBottom = centerY - newHeight / 2.0f;
             viewTop = centerY + newHeight / 2.0f;
 
-            if (viewLeft < MIN_LEFT) {
-                float offset = MIN_LEFT - viewLeft;
-                viewLeft += offset; viewRight += offset;
-            }
-            if (viewRight > MIN_RIGHT) {
-                float offset = viewRight - MIN_RIGHT;
-                viewLeft -= offset; viewRight -= offset;
-            }
-            if (viewBottom < MIN_BOTTOM) {
-                float offset = MIN_BOTTOM - viewBottom;
-                viewBottom += offset; viewTop += offset;
-            }
-            if (viewTop > MIN_TOP) {
-                float offset = viewTop - MIN_TOP;
-                viewBottom -= offset; viewTop -= offset;
-            }
-
+            clampViewToBounds();
             updateProjection();
             glutPostRedisplay();
         }
