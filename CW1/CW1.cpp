@@ -1,4 +1,4 @@
-#include <iostream>
+﻿#include <iostream>
 #include <GL/freeglut.h>
 #include <cmath>
 #include <vector>
@@ -129,7 +129,13 @@ const int numBalloonColors = sizeof(balloonColors) / sizeof(balloonColors[0]);
 // ===========================
 //  Primitive drawing helpers
 // ===========================
-// Draws a filled circle at (cx, cy) with radius r
+
+/**
+ * @brief Draws a filled circle at the specified position
+ * @param cx X-coordinate of the circle center
+ * @param cy Y-coordinate of the circle center
+ * @param r Radius of the circle
+ */
 void drawCircle(float cx, float cy, float r) {
     glBegin(GL_TRIANGLE_FAN);
     glVertex2f(cx, cy);
@@ -140,7 +146,19 @@ void drawCircle(float cx, float cy, float r) {
     glEnd();
 }
 
-// Draws a feathered (blurred edge) filled circle using layered circles
+/**
+ * @brief Draws a feathered (soft-edged) circle using layered transparency
+ * Creates a blur effect by drawing multiple circles with decreasing radius and increasing opacity
+ * @param cx X-coordinate of the circle center
+ * @param cy Y-coordinate of the circle center
+ * @param radius Base radius of the circle
+ * @param feather Width of the feathered edge (blur amount)
+ * @param r Red color component (0.0-1.0)
+ * @param g Green color component (0.0-1.0)
+ * @param b Blue color component (0.0-1.0)
+ * @param a Base alpha (transparency) value (0.0-1.0)
+ * @param layers Number of layers to create the feathering effect (default: 10)
+ */
 void drawFeatheredCircle(float cx, float cy, float radius, float feather,
     float r, float g, float b, float a, int layers = 10)
 {
@@ -152,7 +170,15 @@ void drawFeatheredCircle(float cx, float cy, float radius, float feather,
     }
 }
 
-// Draws a slanted stripe (quad) along a segment
+/**
+ * @brief Draws a slanted stripe (rectangular quad) along a line segment
+ * Calculates perpendicular vectors to create a stripe with specified height
+ * @param x1 X-coordinate of the start point
+ * @param y1 Y-coordinate of the start point
+ * @param x2 X-coordinate of the end point
+ * @param y2 Y-coordinate of the end point
+ * @param height Width of the stripe perpendicular to the line
+ */
 void drawSlantedStripe(float x1, float y1, float x2, float y2, float height)
 {
     float dx = x2 - x1;
@@ -160,9 +186,11 @@ void drawSlantedStripe(float x1, float y1, float x2, float y2, float height)
     float length = sqrt(dx * dx + dy * dy);
     if (length == 0) return;
 
+    // Calculate perpendicular offset vectors
     float perp_dx = -dy / length * (height / 2.0f);
     float perp_dy =  dx / length * (height / 2.0f);
 
+    // Calculate four vertices of the quad
     float v1x = x1 + perp_dx; float v1y = y1 + perp_dy;
     float v2x = x2 + perp_dx; float v2y = y2 + perp_dy;
     float v3x = x2 - perp_dx; float v3y = y2 - perp_dy;
@@ -176,9 +204,19 @@ void drawSlantedStripe(float x1, float y1, float x2, float y2, float height)
     glEnd();
 }
 
-// Draws a quadratic Bezier curve passing through points p0, p1, p2
+/**
+ * @brief Draws a quadratic Bezier curve segment
+ * Calculates the control point from three given points and renders a smooth curve
+ * @param p0x X-coordinate of the starting point
+ * @param p0y Y-coordinate of the starting point
+ * @param p1x X-coordinate of a point the curve passes through (used to calculate control point)
+ * @param p1y Y-coordinate of a point the curve passes through (used to calculate control point)
+ * @param p2x X-coordinate of the ending point
+ * @param p2y Y-coordinate of the ending point
+ */
 void drawQuadraticBezier(float p0x, float p0y, float p1x, float p1y, float p2x, float p2y)
 {
+    // Calculate control point from the three input points
     float ctrl_x = 2.0f * p1x - 0.5f * p0x - 0.5f * p2x;
     float ctrl_y = 2.0f * p1y - 0.5f * p0y - 0.5f * p2y;
 
@@ -186,6 +224,7 @@ void drawQuadraticBezier(float p0x, float p0y, float p1x, float p1y, float p2x, 
     for (int i = 0; i <= 20; ++i) {
         float t = static_cast<float>(i) / 20.0f;
         float u = 1.0f - t;
+        // Quadratic Bezier formula: B(t) = (1-t)²P₀ + 2(1-t)tP₁ + t²P₂
         float x = u * u * p0x + 2.0f * u * t * ctrl_x + t * t * p2x;
         float y = u * u * p0y + 2.0f * u * t * ctrl_y + t * t * p2y;
         glVertex2f(x, y);
@@ -411,7 +450,11 @@ void drawSunOrMoon() {
     glEnd();
 }
 
-// Initializes star field for the night sky
+/**
+ * @brief Initializes the star field for the night sky
+ * Creates 100 stars with random positions, brightness, and twinkle speeds
+ * Uses a fixed seed for consistent star positions across runs
+ */
 void initializeStars() {
     stars.clear();
     srand(12345); // Fixed seed for consistent star positions
@@ -428,13 +471,18 @@ void initializeStars() {
     srand(static_cast<unsigned int>(time(NULL))); // Reset to random seed
 }
 
-// Draws twinkling stars during night
+/**
+ * @brief Draws twinkling stars during night mode
+ * Uses sine wave animation with individual twinkle speeds for each star
+ * to create a realistic twinkling effect
+ */
 void drawStars() {
     if (!is_day) {
         glPointSize(2.0f);
         glBegin(GL_POINTS);
 
         for (size_t i = 0; i < stars.size(); ++i) {
+            // Calculate twinkle effect using sine wave
             float twinkle = 0.5f + 0.5f * sin(starTwinklePhase * stars[i].twinkleSpeed + static_cast<float>(i));
             float alpha = stars[i].brightness * twinkle;
             glColor4f(1.0f, 1.0f, 1.0f, alpha);
@@ -447,7 +495,10 @@ void drawStars() {
 }
 
 // Cloud
-// Draws back cloud layer with shadow
+/**
+ * @brief Draws the back layer of layered background clouds with shadows
+ * Creates depth by rendering clouds with darker colors and feathered shadows
+ */
 void drawCloudLayer_Back()
 {
     float shadow_alpha = is_day ? SHADOW_ALPHA_DAY : SHADOW_ALPHA_NIGHT;
@@ -474,7 +525,10 @@ void drawCloudLayer_Back()
     drawCircle(550.0f, 420.0f, 90.0f);
 }
 
-// Draws middle cloud layer
+/**
+ * @brief Draws the middle layer of layered background clouds
+ * Creates depth by positioning clouds between back and front layers
+ */
 void drawCloudLayer_Middle()
 {
     float shadow_alpha = is_day ? SHADOW_ALPHA_DAY : SHADOW_ALPHA_NIGHT;
@@ -501,7 +555,10 @@ void drawCloudLayer_Middle()
     drawCircle(550.0f, 370.0f, 90.0f);
 }
 
-// Draws front cloud layer
+/**
+ * @brief Draws the front layer of layered background clouds
+ * Creates depth by rendering brightest clouds in the foreground
+ */
 void drawCloudLayer_Front()
 {
     float shadow_alpha = is_day ? SHADOW_ALPHA_DAY : SHADOW_ALPHA_NIGHT;
@@ -528,14 +585,22 @@ void drawCloudLayer_Front()
     drawCircle(550.0f, 320.0f, 90.0f);
 }
 
-// Draws all three layered background clouds
+/**
+ * @brief Draws all three layered background clouds
+ * Renders clouds from back to front to create depth perception
+ */
 void drawLayeredBackgroundClouds() {
     drawCloudLayer_Back();
     drawCloudLayer_Middle();
     drawCloudLayer_Front();
 }
 
-// Draws a cloud from multiple circles
+/**
+ * @brief Draws an animated cloud composed of multiple overlapping circles
+ * @param x_offset X-coordinate offset for the cloud position
+ * @param y_offset Y-coordinate offset for the cloud position
+ * @param scale Scaling factor for the cloud size
+ */
 void drawCloud(float x_offset, float y_offset, float scale) {
     glColor4f(1.0f, 1.0f, 1.0f, 0.9f);
     drawCircle(x_offset, y_offset, 25 * scale);
@@ -608,7 +673,14 @@ void drawAllBushes() {
 // Balloons 
 // ============
 
-// Draws a feathered balloon shadow
+/**
+ * @brief Draws a feathered shadow for a balloon
+ * Creates a soft shadow effect using multiple layers with varying opacity
+ * @param x X-coordinate of the balloon center
+ * @param y Y-coordinate of the balloon center
+ * @param size Size multiplier for the balloon
+ * @param shadow_alpha Base transparency value for the shadow
+ */
 void drawBalloonShadow(float x, float y, float size, float shadow_alpha) {
     const float balloonWidth = 40.0f * size;
     const float balloonHeight = 60.0f * size;
@@ -630,6 +702,7 @@ void drawBalloonShadow(float x, float y, float size, float shadow_alpha) {
             float angle = TWO_PI * static_cast<float>(i) / segments;
             float verticalPos = sin(angle);
 
+            // Adjust radius based on vertical position for teardrop shape
             float radiusX, radiusY;
             if (verticalPos >= 0) {
                 radiusX = balloonWidth * (0.9f + 0.1f * verticalPos) * shrinkFactor;
@@ -645,7 +718,16 @@ void drawBalloonShadow(float x, float y, float size, float shadow_alpha) {
     }
 }
 
-// Draws a balloon with left/right tone and a string
+/**
+ * @brief Draws a balloon with two-tone shading and a wavy string
+ * Creates a teardrop-shaped balloon with lighter left side and darker right side
+ * @param x X-coordinate of the balloon center
+ * @param y Y-coordinate of the balloon center
+ * @param size Size multiplier for the balloon
+ * @param r Red color component (0.0-1.0)
+ * @param g Green color component (0.0-1.0)
+ * @param b Blue color component (0.0-1.0)
+ */
 void drawBalloon(float x, float y, float size, float r, float g, float b) {
     const float balloonWidth = 40.0f * size;
     const float balloonHeight = 60.0f * size;
@@ -686,6 +768,7 @@ void drawBalloon(float x, float y, float size, float r, float g, float b) {
         float angle = PI * 1.5f - static_cast<float>(i) / (segments / 2) * PI;
         float verticalPos = sin(angle);
 
+        // Create teardrop shape by adjusting radius
         float radiusX, radiusY;
         if (verticalPos >= 0) {
             radiusX = balloonWidth * (0.9f + 0.1f * verticalPos);
@@ -735,7 +818,10 @@ void drawBalloon(float x, float y, float size, float r, float g, float b) {
 // Greeting card cover
 // =======================
 
-// Draws polygons to mask the building on the cover
+/**
+ * @brief Draws decorative polygons to mask and stylize the building on the cover
+ * Creates geometric shapes representing the Center Building and Liverpool White Pavilion
+ */
 void drawCoverPolygons()
 {
     glColor3f(0.67f, 0.61f, 0.70f);
@@ -762,13 +848,14 @@ void drawCoverPolygons()
     glVertex2f(550.0f, 100.0f);
     glEnd();
 
-    // Liverpool White Pavilion
+    // Liverpool White Pavilion representation
     const float xs[] = { 585.0f, 615.0f, 645.0f, 675.0f, 705.0f, 735.0f, 765.0f };
     const int count = sizeof(xs) / sizeof(xs[0]);
 
     glColor3f(1.0f, 1.0f, 1.0f);
     glLineWidth(1.0f);
 
+    // Draw vertical columns
     glBegin(GL_LINES);
     for (int i = 0; i < count; ++i) {
         float x = xs[i];
@@ -780,6 +867,7 @@ void drawCoverPolygons()
     }
     glEnd();
 
+    // Draw horizontal and vertical structural lines
     glLineWidth(1.0f);
     glColor3f(1.0f, 1.0f, 1.0f);
     glBegin(GL_LINES);
@@ -820,7 +908,10 @@ void drawCoverPolygons()
     glLineWidth(1.0f);
 }
 
-// Draws a two-tone rotating ring on the cover
+/**
+ * @brief Draws a rotating two-tone ring on the greeting card cover
+ * Creates animation effect by rotating around the center point
+ */
 void drawCoverRing()
 {
     const float centerX = 300.0f;
@@ -834,6 +925,7 @@ void drawCoverRing()
     glRotatef(ringRotationAngle, 0.0f, 0.0f, 1.0f);
     glTranslatef(-centerX, -centerY, 0.0f);
 
+    // Light half of the ring
     glColor3f(0.67f, 0.61f, 0.70f);
     glBegin(GL_TRIANGLE_STRIP);
     for (int i = -90; i <= 90; ++i) {
@@ -843,6 +935,7 @@ void drawCoverRing()
     }
     glEnd();
 
+    // Dark half of the ring
     glColor3f(0.33f, 0.23f, 0.40f);
     glBegin(GL_TRIANGLE_STRIP);
     for (int i = 90; i <= 270; ++i) {
@@ -1106,7 +1199,11 @@ void drawOnScreenHints()
 // View and projection helpers
 // ===============================
 
-// Clamps the view boundaries to prevent panning outside the valid area
+/**
+ * @brief Clamps the view boundaries to prevent panning outside the valid area
+ * Ensures the view stays within MIN_LEFT, MIN_RIGHT, MIN_BOTTOM, MIN_TOP bounds
+ * When a boundary is exceeded, both view edges are adjusted to maintain view size
+ */
 void clampViewToBounds()
 {
     if (viewLeft < MIN_LEFT) {
@@ -1155,7 +1252,14 @@ void resetViewToDefault()
 // Callbacks 
 // =================
 
- //Main display callback
+/**
+ * @brief Main display callback function
+ * Determines which scene to render based on current mode:
+ * - Cover view (when isCoverVisible is true)
+ * - Postcard view (when isPostcardMode is true)
+ * - Main scene (default)
+ * Also renders flash effects and on-screen hints
+ */
 void display() {
     if (isCoverVisible) {
         drawGreetingCardCover();
@@ -1195,7 +1299,17 @@ void display() {
 }
 
 
-// Timer callback to update animation and state
+/**
+ * @brief Timer callback function for animation updates
+ * Called every 16ms (~60 FPS) to update:
+ * - Flash animation effects
+ * - Cover ring rotation
+ * - Cloud drift
+ * - Star twinkling
+ * - Balloon positions
+ * - Balloon cleanup (removes inactive balloons)
+ * @param value Unused parameter required by glutTimerFunc
+ */
 void update(int value) {
     // Flash animation
     if (isFlashing) {
@@ -1283,7 +1397,13 @@ void update(int value) {
     glutTimerFunc(16, update, 0);
 }
 
-// Special keys (arrow keys) for panning when zoomed
+/**
+ * @brief Special keys callback for arrow key panning
+ * Handles arrow keys to pan the view when zoomed in
+ * @param key The special key code (GLUT_KEY_UP, GLUT_KEY_DOWN, etc.)
+ * @param x Mouse x-coordinate when key was pressed
+ * @param y Mouse y-coordinate when key was pressed
+ */
 void specialKeys(int key, int x, int y) {
     if (isCoverVisible || isPostcardMode) {
         return;
@@ -1340,7 +1460,22 @@ void specialKeys(int key, int x, int y) {
     }
 }
 
-// Keyboard input handler
+/**
+ * @brief Keyboard input handler
+ * Handles all keyboard input for the application:
+ * - 'i/I': Toggle hints
+ * - 'o/O': Open/close card
+ * - 'n/N': Toggle day/night
+ * - 'p/P': Toggle postcard mode
+ * - 'l/L': Toggle building lights (night only)
+ * - '+/=': Zoom in
+ * - '-/_': Zoom out
+ * - 'r/R': Reset view
+ * - 'q/Q/ESC': Quit application
+ * @param key The key that was pressed
+ * @param x Mouse x-coordinate when key was pressed
+ * @param y Mouse y-coordinate when key was pressed
+ */
 void keyboard(unsigned char key, int x, int y) {
     switch (key) {
     case 'i': case 'I':
@@ -1440,14 +1575,24 @@ void keyboard(unsigned char key, int x, int y) {
     }
 }
 
-// Mouse input handler (left click to spawn balloons)
+/**
+ * @brief Mouse input handler for balloon creation
+ * Left click creates a new balloon at the clicked position with random properties
+ * Only works when not in cover or postcard mode
+ * @param button The mouse button that was pressed
+ * @param state The state of the button (GLUT_DOWN or GLUT_UP)
+ * @param x Mouse x-coordinate in window space
+ * @param y Mouse y-coordinate in window space
+ */
 void mouse(int button, int state, int x, int y) {
     if (button == GLUT_LEFT_BUTTON && state == GLUT_DOWN) {
         // Only create balloons when not in cover or postcard mode
         if (!isCoverVisible && !isPostcardMode) {
+            // Convert window coordinates to world coordinates
             float worldX = viewLeft + static_cast<float>(x) / windowWidth * (viewRight - viewLeft);
             float worldY = viewTop - static_cast<float>(y) / windowHeight * (viewTop - viewBottom);
 
+            // Randomize balloon properties
             float randomSize = 0.6f + (rand() % 70) / 100.0f;
 
             int colorIndex = rand() % numBalloonColors;
@@ -1460,7 +1605,12 @@ void mouse(int button, int state, int x, int y) {
     }
 }
 
-// Reshape callback (keeps a fixed 600x800 viewport)
+/**
+ * @brief Window reshape callback
+ * Maintains a fixed 600x800 viewport regardless of window size
+ * @param w New window width
+ * @param h New window height
+ */
 void reshape(int w, int h)
 {
     glViewport(0, 0, 600, 800);
