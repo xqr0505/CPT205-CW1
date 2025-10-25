@@ -1,4 +1,5 @@
-﻿#include <iostream>
+#define FREEGLUT_STATIC
+#include <iostream>
 #include <GL/freeglut.h>
 #include <cmath>
 #include <vector>
@@ -1635,4 +1636,5 @@ int main(int argc, char** argv) {
 
     glutMainLoop();
     return 0;
+
 }
